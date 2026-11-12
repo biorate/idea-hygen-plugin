@@ -108,10 +108,11 @@ class HygenEjsPreludeTest : BasePlatformTestCase() {
         val prelude = HygenEjsPrelude.build(contextOf(helpers = setOf("root")))
         val full = prelude + "h.changeCase.param(name);\nroot('dir/x');\n"
         // The prelude is a statement list: every `{`/`(` is balanced, and the number of `const`
-        // declarations is exactly `h` + engine-default variables + config helpers.
+        // declarations is exactly `h` + engine-default variables (name variants + the per-run
+        // specials `ts`/`_`) + config helpers.
         assertEquals(countOccurrences(prelude, "{"), countOccurrences(prelude, "}"))
         assertEquals(countOccurrences(prelude, "("), countOccurrences(prelude, ")"))
-        val expectedConsts = 1 + 4 + 1
+        val expectedConsts = 1 + 4 + 2 + 1
         assertEquals(expectedConsts, countOccurrences(prelude, "const "))
         // Every named member is a callable (`=>`), never a bare name.
         assertTrue(prelude.contains("=>"))

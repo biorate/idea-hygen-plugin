@@ -79,6 +79,20 @@
                          level="ERROR"
                          enabledByDefault="true"
                          implementationClass="com.biorate.hygen.inspection.HygenUnterminatedEjsInspection"/>
+        <localInspection language="HygenTemplate"
+                         shortName="HygenSetupValue"
+                         displayName="Setup value without owner/repo"
+                         groupDisplayName="Hygen"
+                         level="WARNING"
+                         enabledByDefault="true"
+                         implementationClass="com.biorate.hygen.inspection.HygenSetupValueInspection"/>
+        <localInspection language="HygenTemplate"
+                         shortName="HygenFromValue"
+                         displayName="From file not found under _templates"
+                         groupDisplayName="Hygen"
+                         level="WARNING"
+                         enabledByDefault="true"
+                         implementationClass="com.biorate.hygen.inspection.HygenFromValueInspection"/>
         <!-- No `language` attribute: the EJS-in-hook check must also run on the JS/TS hook
              files, which the file-type overrider deliberately leaves as ordinary JS/TS. -->
         <localInspection shortName="HygenEjsInHookFile"

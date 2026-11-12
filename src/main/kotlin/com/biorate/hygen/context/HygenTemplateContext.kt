@@ -82,7 +82,7 @@ object HygenTemplateContext {
         return variables
     }
 
-    /** Resolves and caches the nearest `.hygen.js` locals + helpers for [file]. */
+    /** Resolves and caches the nearest config's locals + helpers for [file]. */
     private fun configCacheEntry(file: HygenFile): CachedConfig {
         val dir = actionDir(file)
         val config = dir?.let { HygenConfigLocator.findNearestConfig(it) } ?: return CachedConfig.EMPTY

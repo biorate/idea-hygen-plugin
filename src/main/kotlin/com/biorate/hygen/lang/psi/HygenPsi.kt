@@ -27,6 +27,10 @@ class HygenFrontmatterKeyValue(node: ASTNode) : ASTWrapperPsiElement(node) {
     val keyElement: PsiElement?
         get() = node.findChildByType(HygenTokenTypes.FRONTMATTER_KEY)?.psi
 
+    /** The PSI element covering the static (non-island) value text, used as a value anchor. */
+    val valueElement: PsiElement?
+        get() = node.findChildByType(HygenTokenTypes.FRONTMATTER_VALUE)?.psi
+
     /** Raw (un-rendered) value text, with EJS islands kept verbatim. */
     val valueText: String
         get() {

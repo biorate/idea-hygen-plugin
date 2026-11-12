@@ -25,14 +25,21 @@ data class HygenContext(
  * The engine defaults every template can reference regardless of any config file (the fork's
  * `context.ts`): `name` is `'unnamed'`, and the engine derives the capitalized and pluralized
  * variants for `name`. The `h` namespace object is always available.
+ *
+ * The engine also injects two per-run specials into every template (`params.ts`: `ts` from
+ * `HYGEN_TS` or the current timestamp, and `_` from the CLI positionals), so they are offered in
+ * completion alongside the `name` variants.
  */
 object EngineDefaults {
     /** The derived `name` variants the engine creates in `context.ts` (capitalize + pluralize). */
     val names: Set<String> = setOf("name", "Name", "names", "Names")
 
-    /** The always-present context: the `name` variants plus the `h` namespace. */
+    /** The per-run specials the engine injects into every template (`params.ts`). */
+    val specials: Set<String> = setOf("ts", "_")
+
+    /** The always-present context: the `name` variants, the per-run specials plus the `h` namespace. */
     val context: HygenContext = HygenContext(
-        variables = names + "h",
+        variables = names + specials + "h",
         helpers = emptySet(),
     )
 }

@@ -147,15 +147,32 @@ class HygenCompletionTest : BasePlatformTestCase() {
     // ---- spec: context variable completion inside islands (task 2.2) ----
 
     fun testDefaultsOnlyFileOffersEngineNameVariants() {
-        // No config -> engine defaults only: `name` + derived variants + the `h` namespace.
+        // No config -> engine defaults only: `name` + derived variants, the per-run specials
+        // (`ts`/`_`) and the `h` namespace.
         val names = proposals("hello <%= <caret> %>\n").map { it.name }.toSet()
-        assertEquals(setOf("name", "Name", "names", "Names", "h"), names)
+        assertEquals(setOf("name", "Name", "names", "Names", "ts", "_", "h"), names)
     }
 
     fun testPartialIdentifierOffersNameVariants() {
         // A bare prefix still routes to context-variable completion (engine defaults, no config).
         val names = proposals("hello <%= na<caret> %>\n").map { it.name }.toSet()
-        assertEquals(setOf("name", "Name", "names", "Names", "h"), names)
+        assertEquals(setOf("name", "Name", "names", "Names", "ts", "_", "h"), names)
+    }
+
+    // ---- spec: engine per-run specials (params.ts: ts / _) ----
+
+    fun testEngineSpecialsOfferedAlongsideLocalsAndPrompts() {
+        // The per-run `ts`/`_` specials must be offered at a top-level EJS island even when a
+        // config local or a prompt hook shares a name — set semantics collapse, never conflict.
+        val context = HygenTemplateContext.merge(
+            ContextSources(configLocals = setOf("scope"), hookVariables = setOf("module")),
+        )
+        val names = proposals("hello <%= <caret> %>\n", context).map { it.name }.toSet()
+        assertTrue("ts" in names)
+        assertTrue("_" in names)
+        assertTrue(setOf("name", "Name", "names", "Names", "h").all { it in names })
+        assertTrue("scope" in names)
+        assertTrue("module" in names)
     }
 
     fun testConfigLocalsBackedFileOffersLocals() {

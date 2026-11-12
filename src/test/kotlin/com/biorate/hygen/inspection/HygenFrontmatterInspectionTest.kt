@@ -42,6 +42,8 @@ class HygenFrontmatterInspectionTest : BasePlatformTestCase() {
             HygenInjectReplaceConflictingInspection(),
             HygenAnchorWithoutInjectInspection(),
             HygenUnterminatedFrontmatterInspection(),
+            HygenSetupValueInspection(),
+            HygenFromValueInspection(),
         )) {
             val holder = ProblemsHolder(InspectionManager.getInstance(project), file, false)
             file.accept(tool.buildVisitor(holder, false))

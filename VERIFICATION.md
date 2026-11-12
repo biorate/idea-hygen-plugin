@@ -242,3 +242,57 @@ Open the plugin project and the real template dir `/www/biorate/application-temp
 ### E.5 Note
 
 Task 4.2 (`./gradlew buildPlugin` + install) is the separate build/install step that must be performed before this sandbox pass. If a check above fails, record the observed behavior and return it; the failing scenario needs a fix before the change is archived.
+
+---
+
+# Verification — change `fork-parity-inspections` (0.4.0)
+
+Verification run: **2026-11-12** · Command: `./gradlew test --console=plain`
+This is a **delta section** appended by task 4.2. The MVP / `ejs-context-and-injection` sections above remain authoritative for their own changes; everything here covers the `fork-parity-inspections` change (multi-config `.hygen.js/.cjs/.mjs/.ts`, `setup:`/`from:` value inspections, `ts`/`_` spec-variables in completion).
+
+## A. Full-suite results — 209 tests, 0 failures / 0 errors / 0 skipped
+
+| Test class | Tests | Failures | Errors | Skipped | Notes |
+|---|---|---|---|---|---|
+| `HygenCatalogIntegrityTest` | 17 | 0 | 0 | 0 | `catalog` — integrity of frontmatter/changeCase/inflection catalogs |
+| `HygenCompletionTest` | 27 | 0 | 0 | 0 | `completion` — proposal set incl. `ts`/`_` spec-variables |
+| `HygenTemplateContextRealTemplatesTest` | 1 | 0 | 0 | 0 | `context` — `visibleAt` corpus sweep (never throws, engine defaults) |
+| `HygenTemplateContextTest` | 30 | 0 | 0 | 0 | `context` — multi-config names, walk-up priority, `.hygen.ts` parsing, cache |
+| `HygenEjsInspectionTest` | 11 | 0 | 0 | 0 | `validation` — unterminated tag, `<%%` escape, hook-file EJS |
+| `HygenForkFrontmatterValueInspectionTest` | 10 | 0 | 0 | 0 | `validation` — **NEW (2.2/3.3)** `setup:`/`from:` value inspections (POS/NEG/absent/existing/nested) + **2 regression tests** (`EJS-island` dynamic/mixed setup values not flagged) |
+| `HygenFrontmatterInspectionTest` | 13 | 0 | 0 | 0 | `validation` — unknown key, inject+replace, anchor w/o inject, broken delimiter |
+| `HygenRealWorldTemplatesTest` | 1 | 0 | 0 | **0** | Ran (not skipped) — **zero problems** on the real `@biorate/hygen` templates (5 original inspections) |
+| `HygenHighlightingTest` | 4 | 0 | 0 | 0 | `language` — token→attribute-key wiring, color settings page |
+| `HygenFileTypeOverriderTest` | 6 | 0 | 0 | 0 | `host-detection` — hook files vs templates classification |
+| `HygenHostDetectionTest` | 10 | 0 | 0 | 0 | `host-detection` — `detectHost` per scenario |
+| `HygenLexerContinuityTest` | 4 | 0 | 0 | 0 | `language` — lexer continuity (2 fixtures + **187-file disk corpus**), editor-flash regression |
+| `HygenPatternAssociatorTest` | 7 | 0 | 0 | 0 | `settings` — filename-pattern association |
+| `HygenPsiTest` | 5 | 0 | 0 | 0 | `language` — file-type registration, PSI tree shape, `toValue` |
+| `HygenTokenizerTest` | 6 | 0 | 0 | 0 | `language` — lexer: frontmatter/body/EJS families + trimming |
+| `HygenEjsContextualNamesTest` | 9 | 0 | 0 | 0 | `injection` — `resolveRoot` / `isGroupMember` for synthetic declarations |
+| `HygenEjsIslandInjectorTest` | 11 | 0 | 0 | 0 | `injection` — island JS injection incl. `testCorpusBodyAndIslandRangesNeverOverlap` |
+| `HygenEjsPlaceholderInjectorTest` | 2 | 0 | 0 | 0 | `injection` — `MultiHostRegistrarPlaceholderHelper` reflective adapter |
+| `HygenEjsPreludeTest` | 9 | 0 | 0 | 0 | `injection` — synthetic prelude (`h` skeleton, catalogs, helpers, engine defaults) |
+| `HygenEjsReferenceProviderTest` | 3 | 0 | 0 | 0 | `injection` — reference contributor safety contract |
+| `HygenInjectionTest` | 3 | 0 | 0 | 0 | `host-detection` — body injector contracts (host language + ranges) |
+| `HygenPatternsTest` | 16 | 0 | 0 | 0 | `settings` — pattern list validation/UI state |
+| `HygenTemplateSettingsTest` | 4 | 0 | 0 | 0 | `settings` — persistence/live association |
+| **Total** | **209** | **0** | **0** | **0** | **BUILD SUCCESSFUL** |
+
+## B. Corpus sweeps (tasks 4.2) — RAN, not skipped
+
+1. **Continuity sweep (187 files)** — `HygenLexerContinuityTest.realWorldTemplateCorpusIsContiguousForTokenizer` / `…ForLexer` over `/www/biorate/application-template/_templates` (**187** files total, of which **186** are `.ejs.t`; the lexer continuity check collects every file under the tree). `skipped = 0` — the corpus is present and was read off disk. **0 failures.** ✅
+2. **New-inspection false-positive sweep (30-file inspection corpus)** — the two NEW inspections (`HygenSetupValueInspection`, `HygenFromValueInspection`) were run over the real template corpora with the `HygenRealWorldTemplatesTest` harness (in-memory `HygenFile` via `PsiFileFactory`, `ProblemsHolder`). Results:
+   - `/www/biorate/application-template/_templates` (**186** `.ejs.t`): **zero** findings — no file carries a `setup:`/`from:` key, so both inspections are silent. ✅
+   - `/www/biorate/core/packages/@biorate/hygen` (**42** real templates: `src/templates/**` + `tests/fixtures/**` minus the `inject-error` subtree): the corpus check **found 1 finding** — `src/templates/init/repo/new-repo.ejs.t` `setup: <%= name %>` was flagged by `HygenSetupValueInspection`. ⚠️ **This was a genuine false positive on a dynamic value**: the raw on-screen value `<%= name %>` contains no `/`, but at generation time it renders to `name` (a CLI argument) and may legitimately be `owner/repo`. The spec scenarios only specify static values (`setup: myrepo` vs `setup: biorate/core-templates`); the dynamic (EJS-island) case was un-specified. **FIX (signed off, landed after the 0.4.0 build):** `HygenSetupValueInspection` now **skips values containing an EJS island** (or an unterminated EJS tag) — `pair.containsEjsIsland()` → `continue`. Addressed in `src/main/kotlin/com/biorate/hygen/inspection/HygenSetupValueInspection.kt` (added `containsEjsIsland()` on `HygenFrontmatterKeyValue`). Two regression tests added to `HygenForkFrontmatterValueInspectionTest` (`testDynamicSetupValueWithEjsIslandIsNotFlagged`, `testMixedStaticValueWithEjsIslandIsNotFlagged`); suite re-run at **209 tests, 0 failures / 0 errors / 0 skipped** (section A reflects the count). **Final state after the fix: new-inspection corpus findings are now 0 on both corpora.** ✅
+   - `HygenFromValueInspection` over both corpora: **zero** findings (no real template uses a `from:` key; its VFS walk-up path is exercised by the 10 `HygenForkFrontmatterValueInspectionTest` unit tests against temp dirs). ✅
+3. **Existing inspection zero-false-positive sweep (29→42 files)** — `HygenRealWorldTemplatesTest.testRealWorldTemplatesHaveZeroProblems` ran not-skipped (`skipped=0`) over the `@biorate/hygen` corpus with the **5 original** inspections — **zero** problems. ✅ (the new inspections are not in that test's `FILE_INSPECTIONS` list; see item 2 above.)
+
+## C. Build & install (task 4.3)
+
+- **Version bump** — `build.gradle.kts` `version = "0.4.0"`.
+- **Build** — `./gradlew buildPlugin` → **BUILD SUCCESSFUL**; artifact `build/distributions/idea-hygen-plugin-0.4.0.zip` (jar manifest `Version: 0.4.0`, `Build-Plugin-Version: 2.20.1`, `Platform-Version: 2025.3.2`).
+- **Install (initial, task 4.3)** — unpacked the zip over `~/.local/share/JetBrains/IntelliJIdea2025.2/plugins/idea-hygen-plugin/` (previous version `0.3.0` jar removed, replaced by `lib/idea-hygen-plugin-0.4.0.jar`), the procedure used for prior versions. The running IDEA on `IU-253.30387.90` loads the plugin from this directory on restart. Conditional on a restart for the plugin to become active in the running IDE.
+- **Reinstall (post-fix)** — the `HygenSetupValueInspection` false-positive fix landed *after* the initial 0.4.0 build/install. `./gradlew buildPlugin` re-run → **BUILD SUCCESSFUL** (the fresh `build/distributions/idea-hygen-plugin-0.4.0.zip` is regenerated, jar confirmed to contain `HygenSetupValueInspectionKt.containsEjsIsland`). The installed `~/.local/share/JetBrains/IntelliJIdea2025.2/plugins/idea-hygen-plugin/lib/idea-hygen-plugin-0.4.0.jar` was **overwritten with the fresh jar** (same name; old file replaced), so the plugin dir now carries the fixed build — see §B item 2 for the fix description.
+
+> **Corpus counts on this machine:** `/www/biorate/application-template/_templates` → 187 files (186 `.ejs.t`); `/www/biorate/core/packages/@biorate/hygen` → 42 collected real templates (1 remaining `.ejs.t` is the deliberate `inject-error` fixture, excluded by design).

@@ -9,15 +9,17 @@
 - **Распознавание шаблонов** — выделенный тип файла для шаблонов hygen. Набор шаблонов имён файлов настраивается (по умолчанию `*.t`, доступны также пресеты `*.ejs.t`, `*.tmpl` и собственные маски); изменения применяются без перезапуска IDE.
 - **Подсветка синтаксиса** — YAML frontmatter (блок `--- … ---`) и EJS-теги в теле шаблона, с настраиваемыми цветами (страница настроек цветов + схема для предпросмотра).
 - **Инъекция языка-хозяина** — тело шаблона получает подсветку и анализ целевого языка (JS/TS и т.д.), определяемого по расширению в значении `to:` frontmatter (в т.ч. когда путь содержит EJS-интерполяции).
-- **Инъекция JavaScript в EJS-«острова»** — код внутри `<% … %>`, `<%= … %>` и их trim-вариантов получает полноценную поддержку JS: подсветку, анализ ошибок и автодополнение. Ссылки в инъецированном коде разрешаются синтетическими объявлениями (без ложных «unknown symbol»): `h`, переменные контекста шаблона, helpers из `.hygen.js`.
+- **Инъекция JavaScript в EJS-«острова»** — код внутри `<% … %>`, `<%= … %>` и их trim-вариантов получает полноценную поддержку JS: подсветку, анализ ошибок и автодополнение. Ссылки в инъецированном коде разрешаются синтетическими объявлениями (без ложных «unknown symbol»): `h`, переменные контекста шаблона, helpers из конфига проекта (`.hygen.js`/`.hygen.cjs`/`.hygen.mjs`/`.hygen.ts`).
 - **Инспекции (уровень 1, структурные)**:
   - *Unknown frontmatter key* (warning) — неизвестный ключ frontmatter (набор ключей форка `@biorate/hygen`: `to`, `inject`, `sh`, `before`, `after`, `prepend`, `append`, `at_line`, `skip_if`, `skip_if_not`, `create_if_missing`, `replace`, `unless_exists`, `local`, `setup`, `force`, `message`, `echo`, `spinner`, `sh_ignore_exit`, `mode`, `verbose`, `from`, `eof_last`);
   - *Unterminated frontmatter block* / *Unterminated EJS tag* (error) — незакрытый блок frontmatter или EJS-тег;
   - *Mutually exclusive inject and replace* (error) — одновременное использование `inject` и `replace`;
   - *Anchor option without inject mode* (warning) — якорные опции (`before`, `after`, `prepend`, `append`, `at_line`) без режима `inject`;
-  - *EJS tags in hook file* (warning) — EJS-теги в hook-файлах (`prompt.js`/`index.js`/`prompt.ts`/`index.ts`), где они движком не обрабатываются.
-- **Автодополнение** — ключи frontmatter с описаниями семантики форка; члены объекта `h` (`h.changeCase.*` — 40 методов, `h.inflection.*` — 16 методов, а также `h.capitalize`, `h.path` и др.); переменные контекста шаблона.
-- **Контекст шаблона** — плагин понимает, какие переменные доступны в шаблоне: движковые дефолты (`name`, `Name`, `names`, `Names`), `localsDefaults` из `.hygen.js`, переменные из prompt-хуков, а также переменные, объявленные в самом шаблоне.
+  - *EJS tags in hook file* (warning) — EJS-теги в hook-файлах (`prompt.js`/`index.js`/`prompt.ts`/`index.ts`), где они движком не обрабатываются;
+  - *Setup value without owner/repo* (warning) — значение `setup:` без вида `owner/repo`, который ждёт движок (он выбросит `SetupRepositoryError`);
+  - *From file not found* (warning) — значение `from:` указывает на несуществующий файл относительно ближайшего `_templates` (молчит, если `_templates` не найден).
+- **Автодополнение** — ключи frontmatter с описаниями семантики форка; члены объекта `h` (`h.changeCase.*` — 40 методов, `h.inflection.*` — 16 методов, а также `h.capitalize`, `h.path` и др.); переменные контекста шаблона, включая движковые спец-переменные `ts` (timestamp запуска) и `_` (позиционные аргументы CLI).
+- **Контекст шаблона** — плагин понимает, какие переменные доступны в шаблоне: движковые дефолты (`name`, `Name`, `names`, `Names`, а также спец-переменные `ts` и `_`), `localsDefaults` из конфига проекта, переменные из prompt-хуков, а также переменные, объявленные в самом шаблоне.
 
 ## Требования
 
@@ -32,7 +34,7 @@
    ```bash
    ./gradlew buildPlugin
    ```
-2. Артефакт появится в `build/distributions/idea-hygen-plugin-<версия>.zip` (текущая версия — `0.3.0`).
+2. Артефакт появится в `build/distributions/idea-hygen-plugin-<версия>.zip` (текущая версия — `0.4.0`).
 3. В IDE: **Settings → Plugins → ⚙ → Install Plugin from Disk…** и выберите zip.
    Альтернатива: распаковать zip и скопировать каталог плагина в папку плагинов IDE (`~/.local/share/JetBrains/IntelliJIdea<versia>/plugins` и т.п.).
 4. Перезапустите IDE.
@@ -76,7 +78,7 @@ after: // add-email-here
 
 **Хелперы `h`** — доступны внутри EJS-тегов: `h.changeCase.*` (пакет [change-case](https://www.npmjs.com/package/change-case), 40 методов), `h.inflection.*` (пакет [inflection](https://www.npmjs.com/package/inflection), 16 методов), `h.capitalize`, `h.path` и др.
 
-**Переменные контекста**: `name`, `Name`, `names`, `Names` (дефолты движка, всегда доступны), переменные из `localsDefaults` в `.hygen.js`, переменные, запрошенные в prompt-хуке (`prompt.js`), и переменные, объявленные в самом шаблоне.
+**Переменные контекста**: `name`, `Name`, `names`, `Names` (дефолты движка, всегда доступны), движковые спец-переменные `ts` (timestamp запуска) и `_` (позиционные аргументы CLI), переменные из `localsDefaults` в конфиге проекта (`.hygen.js`/`.hygen.cjs`/`.hygen.mjs`/`.hygen.ts`), переменные, запрошенные в prompt-хуке (`prompt.js`), и переменные, объявленные в самом шаблоне.
 
 ## Ссылки
 

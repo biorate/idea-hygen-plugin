@@ -9,15 +9,17 @@ An IntelliJ IDEA plugin for the **@biorate/hygen** code generator's templates: s
 - **Template recognition** — a dedicated file type for hygen templates. The set of filename patterns is configurable (default `*.t`, with presets `*.ejs.t`, `*.tmpl`, and custom globs available); changes apply live, without restarting the IDE.
 - **Syntax highlighting** — YAML frontmatter (the `--- … ---` block) and EJS tags in the template body, with configurable colors (a colors settings page plus a preview scheme).
 - **Host-language injection** — the template body gets highlighting and analysis for the target language (JS/TS etc.), determined from the extension in the `to:` frontmatter value (including when the path contains EJS interpolations).
-- **JavaScript injection into EJS "islands"** — code inside `<% … %>`, `<%= … %>`, and their trim variants gets full JS support: highlighting, error analysis, and completion. References in injected code resolve through synthetic declarations (no false "unknown symbol"): `h`, template context variables, and helpers from `.hygen.js`.
+- **JavaScript injection into EJS "islands"** — code inside `<% … %>`, `<%= … %>`, and their trim variants gets full JS support: highlighting, error analysis, and completion. References in injected code resolve through synthetic declarations (no false "unknown symbol"): `h`, template context variables, and helpers from the project hygen config (`.hygen.js`/`.hygen.cjs`/`.hygen.mjs`/`.hygen.ts`).
 - **Inspections (tier 1, structural)**:
   - *Unknown frontmatter key* (warning) — an unknown frontmatter key (the `@biorate/hygen` fork's key set: `to`, `inject`, `sh`, `before`, `after`, `prepend`, `append`, `at_line`, `skip_if`, `skip_if_not`, `create_if_missing`, `replace`, `unless_exists`, `local`, `setup`, `force`, `message`, `echo`, `spinner`, `sh_ignore_exit`, `mode`, `verbose`, `from`, `eof_last`);
   - *Unterminated frontmatter block* / *Unterminated EJS tag* (error) — an unclosed frontmatter block or EJS tag;
   - *Mutually exclusive inject and replace* (error) — using `inject` and `replace` together;
   - *Anchor option without inject mode* (warning) — anchor options (`before`, `after`, `prepend`, `append`, `at_line`) without `inject` mode;
-  - *EJS tags in hook file* (warning) — EJS tags in hook files (`prompt.js`/`index.js`/`prompt.ts`/`index.ts`), where the engine does not process them.
-- **Completion** — frontmatter keys with descriptions of the fork's semantics; members of the `h` object (`h.changeCase.*` — 40 methods, `h.inflection.*` — 16 methods, plus `h.capitalize`, `h.path`, and others); template context variables. That's 25 frontmatter keys and 56 `h` members in total.
-- **Template context** — the plugin understands which variables are available in a template: engine defaults (`name`, `Name`, `names`, `Names`), `localsDefaults` from `.hygen.js`, variables requested in prompt hooks, and variables declared in the template itself.
+  - *EJS tags in hook file* (warning) — EJS tags in hook files (`prompt.js`/`index.js`/`prompt.ts`/`index.ts`), where the engine does not process them;
+  - *Setup value without owner/repo* (warning) — a `setup:` value without the `owner/repo` reference shape the engine expects (it throws `SetupRepositoryError`);
+  - *From file not found* (warning) — a `from:` value whose file does not exist relative to the nearest `_templates` directory (silent when no `_templates` is found).
+- **Completion** — frontmatter keys with descriptions of the fork's semantics; members of the `h` object (`h.changeCase.*` — 40 methods, `h.inflection.*` — 16 methods, plus `h.capitalize`, `h.path`, and others); template context variables, including the engine spec-variables `ts` (run timestamp) and `_` (positional CLI arguments). That's 25 frontmatter keys and 56 `h` members in total.
+- **Template context** — the plugin understands which variables are available in a template: engine defaults (`name`, `Name`, `names`, `Names`, plus the spec-variables `ts` and `_`), `localsDefaults` from the project hygen config, variables requested in prompt hooks, and variables declared in the template itself.
 
 ## Requirements
 
@@ -32,7 +34,7 @@ An IntelliJ IDEA plugin for the **@biorate/hygen** code generator's templates: s
    ```bash
    ./gradlew buildPlugin
    ```
-2. The artifact appears in `build/distributions/idea-hygen-plugin-<version>.zip` (current version — `0.3.0`).
+2. The artifact appears in `build/distributions/idea-hygen-plugin-<version>.zip` (current version — `0.4.0`).
 3. In the IDE: **Settings → Plugins → ⚙ → Install Plugin from Disk…** and pick the zip.
    Alternative: unpack the zip and copy the plugin directory into the IDE's plugins folder (`~/.local/share/JetBrains/IntelliJIdea<version>/plugins` etc.).
 4. Restart the IDE.
@@ -76,7 +78,7 @@ Key keys: `to`, `inject`, `sh`, `before`, `after`, `prepend`, `append`, `at_line
 
 **`h` helpers** — available inside EJS tags: `h.changeCase.*` (the [change-case](https://www.npmjs.com/package/change-case) package, 40 methods), `h.inflection.*` (the [inflection](https://www.npmjs.com/package/inflection) package, 16 methods), `h.capitalize`, `h.path`, and others.
 
-**Context variables**: `name`, `Name`, `names`, `Names` (engine defaults, always available), variables from `localsDefaults` in `.hygen.js`, variables requested in a prompt hook (`prompt.js`), and variables declared in the template itself.
+**Context variables**: `name`, `Name`, `names`, `Names` (engine defaults, always available), the engine spec-variables `ts` (run timestamp) and `_` (positional CLI arguments), variables from `localsDefaults` in the project hygen config (`.hygen.js`/`.hygen.cjs`/`.hygen.mjs`/`.hygen.ts`), variables requested in a prompt hook (`prompt.js`), and variables declared in the template itself.
 
 ## Links
 
