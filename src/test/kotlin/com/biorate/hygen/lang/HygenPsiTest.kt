@@ -20,7 +20,9 @@ class HygenPsiTest : BasePlatformTestCase() {
         // only looks at the segment after the last dot), so `.ejs.t` templates are registered
         // via the `patterns` file-name matcher and resolved by file name instead.
         assertEquals(HygenFileType, FileTypeManager.getInstance().getFileTypeByFileName("hello.ejs.t"))
-        assertEquals("ejs.t", HygenFileType.defaultExtension)
+        // The default extension is the single `.t` segment the plugin claims (design D4); compound
+        // `.ejs.t` names are still claimed through the `*.t` file-name pattern matcher above.
+        assertEquals(HygenFileType.EXTENSION, HygenFileType.defaultExtension)
         assertTrue(HygenFileType is com.intellij.openapi.fileTypes.LanguageFileType)
     }
 

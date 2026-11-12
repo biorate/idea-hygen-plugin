@@ -38,6 +38,7 @@ object HygenFrontmatterCatalog {
         "verbose" to "verbose output for a setup/shell action",
         "from" to "copy the body from a source file instead of the template body",
         "eof_last" to "preserve/trim the trailing newline around an injected body",
+        "mirror" to "opt-in mirroring: copy the file to a path mirrored from the source when `to:` is absent",
     )
 
     val knownKeys: Set<String> get() = keys.keys

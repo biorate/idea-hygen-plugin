@@ -5,29 +5,34 @@
 
     <description><![CDATA[
         Language support for <b>@biorate/hygen</b> templates: syntax highlighting,
-        structural validation and completion for <code>.ejs.t</code> files.
+        structural validation and completion for <code>.t</code> files.
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <!-- A compound extension (`.ejs.t`) cannot be matched through the `extensions`
-             attribute: IntelliJ matches an extension by the segment after the last dot, so
-             `ejs.t` would never match `...prettierrc.ejs.t` and the file would fall through
-             to whichever plugin owns `*.t`. `patterns` registers a FileNameMatcher that is
-             applied to the whole file name, so `.ejs.t` files resolve to this type while
-             plain `.t` files stay with the Perl file type. -->
+        <!-- The `<fileType>` declaration no longer carries a static `patterns` attribute (design
+             D1): associations are applied at runtime from the user-configurable pattern list in
+             Settings → Tools → Hygen Templates (default `*.t`), so a change takes effect without
+             an IDE restart. The default state, when nothing is stored yet, is the `*.t` default
+             applied by the startup association sync. -->
         <fileType name="Hygen Template"
                   language="HygenTemplate"
                   implementationClass="com.biorate.hygen.lang.HygenFileType"
-                  fieldName="INSTANCE"
-                  patterns="*.ejs.t"/>
+                  fieldName="INSTANCE"/>
         <lang.parserDefinition language="HygenTemplate"
                                implementationClass="com.biorate.hygen.lang.HygenParserDefinition"/>
         <lang.syntaxHighlighter language="HygenTemplate"
                                 implementationClass="com.biorate.hygen.lang.highlight.HygenSyntaxHighlighter"/>
         <colorSettingsPage implementationClass="com.biorate.hygen.lang.highlight.HygenColorSettingsPage"/>
         <fileTypeOverrider implementation="com.biorate.hygen.lang.HygenFileTypeOverrider"/>
+        <!-- Applies the configured template patterns as dynamic file-type associations on startup
+             and re-applies them on every settings change (design D1/D5). -->
+        <applicationInitializedListener implementation="com.biorate.hygen.lang.HygenTemplatePatternsLifecycle"/>
+        <!-- Settings → Tools → Hygen Templates: editable pattern list + presets + validation. -->
+        <applicationConfigurable parentId="tools"
+                                 displayName="Hygen Templates"
+                                 instance="com.biorate.hygen.settings.HygenTemplateConfigurable"/>
         <multiHostInjector implementation="com.biorate.hygen.lang.injection.HygenMultiHostInjector"/>
         <multiHostInjector implementation="com.biorate.hygen.lang.injection.HygenEjsIslandInjector"/>
         <completion.contributor language="HygenTemplate"
