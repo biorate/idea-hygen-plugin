@@ -1,0 +1,95 @@
+# Hygen Template Support
+
+[English documentation → README.md](README.md)
+
+Плагин для IntelliJ IDEA: поддержка шаблонов генератора кода **@biorate/hygen** — подсветка синтаксиса, структурная валидация, автодополнение и языковые инъекции для файлов шаблонов (`.t`).
+
+## Что делает плагин
+
+- **Распознавание шаблонов** — выделенный тип файла для шаблонов hygen. Набор шаблонов имён файлов настраивается (по умолчанию `*.t`, доступны также пресеты `*.ejs.t`, `*.tmpl` и собственные маски); изменения применяются без перезапуска IDE.
+- **Подсветка синтаксиса** — YAML frontmatter (блок `--- … ---`) и EJS-теги в теле шаблона, с настраиваемыми цветами (страница настроек цветов + схема для предпросмотра).
+- **Инъекция языка-хозяина** — тело шаблона получает подсветку и анализ целевого языка (JS/TS и т.д.), определяемого по расширению в значении `to:` frontmatter (в т.ч. когда путь содержит EJS-интерполяции).
+- **Инъекция JavaScript в EJS-«острова»** — код внутри `<% … %>`, `<%= … %>` и их trim-вариантов получает полноценную поддержку JS: подсветку, анализ ошибок и автодополнение. Ссылки в инъецированном коде разрешаются синтетическими объявлениями (без ложных «unknown symbol»): `h`, переменные контекста шаблона, helpers из `.hygen.js`.
+- **Инспекции (уровень 1, структурные)**:
+  - *Unknown frontmatter key* (warning) — неизвестный ключ frontmatter (набор ключей форка `@biorate/hygen`: `to`, `inject`, `sh`, `before`, `after`, `prepend`, `append`, `at_line`, `skip_if`, `skip_if_not`, `create_if_missing`, `replace`, `unless_exists`, `local`, `setup`, `force`, `message`, `echo`, `spinner`, `sh_ignore_exit`, `mode`, `verbose`, `from`, `eof_last`);
+  - *Unterminated frontmatter block* / *Unterminated EJS tag* (error) — незакрытый блок frontmatter или EJS-тег;
+  - *Mutually exclusive inject and replace* (error) — одновременное использование `inject` и `replace`;
+  - *Anchor option without inject mode* (warning) — якорные опции (`before`, `after`, `prepend`, `append`, `at_line`) без режима `inject`;
+  - *EJS tags in hook file* (warning) — EJS-теги в hook-файлах (`prompt.js`/`index.js`/`prompt.ts`/`index.ts`), где они движком не обрабатываются.
+- **Автодополнение** — ключи frontmatter с описаниями семантики форка; члены объекта `h` (`h.changeCase.*` — 40 методов, `h.inflection.*` — 16 методов, а также `h.capitalize`, `h.path` и др.); переменные контекста шаблона.
+- **Контекст шаблона** — плагин понимает, какие переменные доступны в шаблоне: движковые дефолты (`name`, `Name`, `names`, `Names`), `localsDefaults` из `.hygen.js`, переменные из prompt-хуков, а также переменные, объявленные в самом шаблоне.
+
+## Требования
+
+- IntelliJ IDEA **2024.3+** (`since-build 243`).
+  - Базовые функции (подсветка, инспекции, frontmatter-дополнение) работают в **Community Edition**.
+  - Инъекция JavaScript/TypeScript (в тело шаблона и в EJS-острова) требует **IDEA Ultimate** — она опирается на плагин JavaScript.
+- Плагин собирается из исходников: **в Marketplace он пока не опубликован**.
+
+## Установка
+
+1. Соберите плагин:
+   ```bash
+   ./gradlew buildPlugin
+   ```
+2. Артефакт появится в `build/distributions/idea-hygen-plugin-<версия>.zip` (текущая версия — `0.3.0`).
+3. В IDE: **Settings → Plugins → ⚙ → Install Plugin from Disk…** и выберите zip.
+   Альтернатива: распаковать zip и скопировать каталог плагина в папку плагинов IDE (`~/.local/share/JetBrains/IntelliJIdea<versia>/plugins` и т.п.).
+4. Перезапустите IDE.
+
+## Настройка
+
+**Settings → Tools → Hygen Templates**:
+
+- Редактируемый список масок имён файлов для шаблонов hygen, с пресетами:
+  - `*.t` (по умолчанию),
+  - `*.ejs.t`,
+  - `*.tmpl`,
+  - плюс любые собственные маски. Есть валидация ввода; изменения применяются сразу, без перезапуска IDE.
+- Файлы внутри `_templates/**` (внутри папки action-а) считаются шаблонами **все**, кроме `prompt.js` / `index.js` / `prompt.ts` / `index.ts` — они остаются обычными JS/TS-файлами (hook-файлы). Это соответствует поведению самого движка.
+- ⚠️ Обратите внимание: маска по умолчанию `*.t` захватывает расширение `.t` во всей IDE — если у вас есть другие `.t`-файлы, сузьте список масок.
+
+## Краткая справка по синтаксису шаблонов
+
+**Frontmatter** — YAML-блок в начале файла:
+
+```yaml
+---
+to: app/emails/<%= name %>.ts
+inject: true
+after: // add-email-here
+---
+```
+
+Основные ключи: `to`, `inject`, `sh`, `before`, `after`, `prepend`, `append`, `at_line`, `skip_if`, `skip_if_not`, `create_if_missing`, `replace`, `local` и др. Полный список ключей и их семантика — в документации движка (ссылки ниже).
+
+**EJS-теги** в теле шаблона:
+
+| Тег | Назначение |
+|---|---|
+| `<%= выражение %>` | интерполяция с экранированием |
+| `<%- выражение %>` | интерполяция без экранирования |
+| `<% код %>` | скриптлет (исполняемый JS) |
+| `<%# комментарий %>` | комментарий |
+| `<%-`, `-%>`, `<%_`, `_%>` | маркеры обрезки пробелов/переводов строк |
+| `<%%` | экранирование литерального `<%` |
+
+**Хелперы `h`** — доступны внутри EJS-тегов: `h.changeCase.*` (пакет [change-case](https://www.npmjs.com/package/change-case), 40 методов), `h.inflection.*` (пакет [inflection](https://www.npmjs.com/package/inflection), 16 методов), `h.capitalize`, `h.path` и др.
+
+**Переменные контекста**: `name`, `Name`, `names`, `Names` (дефолты движка, всегда доступны), переменные из `localsDefaults` в `.hygen.js`, переменные, запрошенные в prompt-хуке (`prompt.js`), и переменные, объявленные в самом шаблоне.
+
+## Ссылки
+
+- Движок шаблонов: **@biorate/hygen** — форк Hygen ([jondot/hygen](https://github.com/jondot/hygen)), живёт в монорепозитории [biorate/core](https://github.com/biorate/core), каталог [`packages/@biorate/hygen`](https://github.com/biorate/core/tree/main/packages/%40biorate/hygen).
+- [change-case](https://www.npmjs.com/package/change-case) — библиотека преобразований регистра, доступная как `h.changeCase.*`.
+- [inflection](https://www.npmjs.com/package/inflection) — библиотека словоформ (множественное/единственное число и т.п.), доступная как `h.inflection.*`.
+
+## Разработка
+
+```bash
+./gradlew test        # тесты (JUnit + платформенный тестовый фреймворк)
+./gradlew buildPlugin # сборка дистрибутива
+./gradlew runIde      # запуск IDE-песочницы с плагином
+```
+
+Проект развивается по OpenSpec-процессу: спецификации возможностей лежат в `openspec/specs/` (язык шаблонов, валидация, определение языка-хозяина, инъекция EJS, автодополнение, контекст шаблона), итоги ручной и автоматической проверки — в `VERIFICATION.md`.
