@@ -12,6 +12,18 @@ class HygenTokenizerTest {
     private fun tokenTexts(text: String): List<Pair<String, String>> =
         HygenTokenizer.tokenize(text).map { it.type.debugName to text.substring(it.start, it.end) }
 
+    /** A lexer must cover every offset: each token starts where the previous ended, covering the whole document. */
+    private fun assertContiguous(text: String, tokens: List<Pair<String, String>>) {
+        val stream = HygenTokenizer.tokenize(text)
+        var expected = 0
+        for (t in stream) {
+            assertEquals("gap: token ${t.type.debugName}[${t.start},${t.end}) starts at ${t.start} but expected $expected", expected, t.start)
+            assertEquals("empty token ${t.type.debugName} at ${t.start}", true, t.end > t.start)
+            expected = t.end
+        }
+        assertEquals("trailing gap: stream ends at $expected but document is ${text.length}", text.length, expected)
+    }
+
     @Test
     fun `tokenizes frontmatter and body`() {
         val text = """
@@ -23,9 +35,11 @@ class HygenTokenizerTest {
         """.trimMargin()
 
         val tokens = tokenTexts(text)
+        assertContiguous(text, tokens)
         assertEquals(
             listOf(
                 "HYGEN_FRONTMATTER_DELIMITER" to "---",
+                "HYGEN_FRONTMATTER_WHITESPACE" to "\n",
                 "HYGEN_FRONTMATTER_KEY" to "to",
                 "HYGEN_FRONTMATTER_COLON" to ":",
                 "HYGEN_FRONTMATTER_WHITESPACE" to " ",
@@ -42,7 +56,7 @@ class HygenTokenizerTest {
                 "HYGEN_FRONTMATTER_WHITESPACE" to "\n",
                 "HYGEN_FRONTMATTER_DELIMITER" to "---",
             ),
-            tokens.take(16),
+            tokens.take(17),
         )
         assertTrue(tokens.drop(16).any { it.first == "HYGEN_BODY_TEXT" })
         assertTrue(tokens.drop(16).any { it.first == "HYGEN_EJS_EXPRESSION" })

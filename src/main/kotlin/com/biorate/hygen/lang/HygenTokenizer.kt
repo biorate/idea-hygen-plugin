@@ -87,7 +87,13 @@ object HygenTokenizer {
         // opening delimiter line
         var pos = 0
         var end = lineEnd(text, pos)
-        tokens.add(HygenToken(HygenTokenTypes.FRONTMATTER_DELIMITER, pos, trimLineTerminator(text, pos, end)))
+        val openTrim = trimLineTerminator(text, pos, end)
+        tokens.add(HygenToken(HygenTokenTypes.FRONTMATTER_DELIMITER, pos, openTrim))
+        // The terminator is trimmed off the delimiter token; re-emit it so the token stream
+        // stays contiguous (the editor highlighter rejects lexers that leave untokenized gaps).
+        if (end > openTrim) {
+            tokens.add(HygenToken(HygenTokenTypes.FRONTMATTER_WHITESPACE, openTrim, end))
+        }
         pos = end
 
         while (pos < contentEnd) {
@@ -99,13 +105,11 @@ object HygenTokenizer {
         // closing delimiter line
         val closeStart = contentEnd
         val closeEnd = lineEnd(text, closeStart)
-        tokens.add(
-            HygenToken(
-                HygenTokenTypes.FRONTMATTER_DELIMITER,
-                closeStart,
-                trimLineTerminator(text, closeStart, minOf(closeEnd, text.length)),
-            ),
-        )
+        val closeTrim = trimLineTerminator(text, closeStart, minOf(closeEnd, text.length))
+        tokens.add(HygenToken(HygenTokenTypes.FRONTMATTER_DELIMITER, closeStart, closeTrim))
+        if (closeEnd > closeTrim) {
+            tokens.add(HygenToken(HygenTokenTypes.FRONTMATTER_WHITESPACE, closeTrim, closeEnd))
+        }
     }
 
     private fun trimLineTerminator(text: CharSequence, start: Int, end: Int): Int {
@@ -154,8 +158,10 @@ object HygenTokenizer {
             }
             tokenizeValue(text, valueStart, contentEnd, tokens)
         } else {
-            // continuation line or unparsed value text
-            tokenizeValue(text, i, contentEnd, tokens)
+            // Continuation line or unparsed value text (no colon). The scanned prefix [keyStart, i)
+            // is *not* a key, so the value must start at keyStart — starting at `i` would leave that
+            // prefix untokenized and break the contiguous token stream the editor requires.
+            tokenizeValue(text, keyStart, contentEnd, tokens)
         }
 
         if (end > contentEnd) tokens.add(HygenToken(HygenTokenTypes.FRONTMATTER_WHITESPACE, contentEnd, end))
