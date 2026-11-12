@@ -3,6 +3,10 @@ package com.biorate.hygen.completion
 import com.biorate.hygen.catalog.HygenChangeCaseCatalog
 import com.biorate.hygen.catalog.HygenFrontmatterCatalog
 import com.biorate.hygen.catalog.HygenInflectionCatalog
+import com.biorate.hygen.context.ContextSources
+import com.biorate.hygen.context.EngineDefaults
+import com.biorate.hygen.context.HygenContext
+import com.biorate.hygen.context.HygenTemplateContext
 import com.biorate.hygen.lang.HygenLanguage
 import com.biorate.hygen.lang.psi.HygenFile
 import com.intellij.psi.PsiFileFactory
@@ -33,6 +37,14 @@ class HygenCompletionTest : BasePlatformTestCase() {
     private fun proposals(textWithCaret: String): List<HygenCompletionCandidate> {
         val (file, caret) = configure(textWithCaret)
         return HygenCompletion.computeProposals(file, caret)
+    }
+
+    private fun proposals(
+        textWithCaret: String,
+        context: HygenContext,
+    ): List<HygenCompletionCandidate> {
+        val (file, caret) = configure(textWithCaret)
+        return HygenCompletion.computeProposals(file, caret, context)
     }
 
     // ---- spec: Frontmatter key completion ----
@@ -130,6 +142,92 @@ class HygenCompletionTest : BasePlatformTestCase() {
         val file = PsiFileFactory.getInstance(project)
             .createFileFromText("hello.ejs.t", HygenLanguage, "") as HygenFile
         assertEquals(0, HygenCompletion.computeProposals(file, 0).size)
+    }
+
+    // ---- spec: context variable completion inside islands (task 2.2) ----
+
+    fun testDefaultsOnlyFileOffersEngineNameVariants() {
+        // No config -> engine defaults only: `name` + derived variants + the `h` namespace.
+        val names = proposals("hello <%= <caret> %>\n").map { it.name }.toSet()
+        assertEquals(setOf("name", "Name", "names", "Names", "h"), names)
+    }
+
+    fun testPartialIdentifierOffersNameVariants() {
+        // A bare prefix still routes to context-variable completion (engine defaults, no config).
+        val names = proposals("hello <%= na<caret> %>\n").map { it.name }.toSet()
+        assertEquals(setOf("name", "Name", "names", "Names", "h"), names)
+    }
+
+    fun testConfigLocalsBackedFileOffersLocals() {
+        // Simulates the context resolved from a `.hygen.js` with localsDefaults (task 2.1 already
+        // tests disk resolution; here we assert the locals flow into identifier completion).
+        val context = HygenTemplateContext.merge(
+            ContextSources(configLocals = setOf("scope", "module"), configHelpers = setOf("root")),
+        )
+        val names = proposals("hello <%= <caret> %>\n", context).map { it.name }.toSet()
+        assertTrue("scope" in names)
+        assertTrue("module" in names)
+        // The engine defaults are still present alongside the config locals.
+        assertTrue(setOf("name", "Name", "names", "Names", "h").all { it in names })
+    }
+
+    fun testConfigHelpersMergeIntoHDotCompletion() {
+        val context = HygenTemplateContext.merge(
+            ContextSources(configHelpers = setOf("root", "stringify", "platform")),
+        )
+        val names = proposals("hello <%= h.<caret> %>\n", context).map { it.name }.toSet()
+        assertEquals(
+            setOf("changeCase", "inflection", "capitalize", "path", "root", "stringify", "platform"),
+            names,
+        )
+    }
+
+    fun testConfigHelpersCarryDescriptions() {
+        val context = HygenTemplateContext.merge(
+            ContextSources(configHelpers = setOf("root", "stringify", "platform")),
+        )
+        val byName = proposals("hello <%= h.<caret> %>\n", context).associateBy { it.name }
+        for (helper in listOf("root", "stringify", "platform")) {
+            assertTrue("config helper '$helper' must be documented", byName[helper]!!.description.isNotBlank())
+            assertFalse("config helpers are not namespaces", byName[helper]!!.isNamespace)
+        }
+    }
+
+    // ---- spec: in-template declarations resolve positionally (task 2.2) ----
+
+    fun testDeclarationBelowCaretIsOffered() {
+        // Island above declares APP_NAME; the lower island's identifier completion offers it.
+        val names = proposals("<% APP_NAME = 'demo' %>\n<%= APP_<caret> %>\n").map { it.name }.toSet()
+        assertTrue("APP_NAME" in names)
+    }
+
+    fun testNoBackPropagationAboveCaret() {
+        // Declaration island is BELOW the caret -> not visible -> not offered.
+        val names = proposals("<%= APP_<caret> %>\n<% APP_NAME = 'demo' %>\n").map { it.name }.toSet()
+        assertFalse("APP_NAME" in names)
+    }
+
+    fun testConstDeclarationBelowCaretIsOffered() {
+        val names = proposals("<% const upper = Name %>\n<%= up<caret> %>\n").map { it.name }.toSet()
+        assertTrue("upper" in names)
+    }
+
+    // ---- spec: graceful degradation (task 2.2) ----
+
+    fun testUnterminatedTagStillOffersContextVariables() {
+        // An unterminated `<%` must still offer context-variable completion, not drop it.
+        val names = proposals("---\nto: app/x.js\n---\n<%= <caret>\n").map { it.name }.toSet()
+        assertTrue(setOf("name", "Name", "names", "Names", "h").all { it in names })
+    }
+
+    fun testMissingConfigFallsBackToEngineDefaults() {
+        // With an empty context (no config) the `h.` completion serves only the built-in catalog.
+        val context = HygenContext(variables = EngineDefaults.names + "h", helpers = emptySet())
+        val names = proposals("hello <%= h.<caret> %>\n", context).map { it.name }.toSet()
+        assertEquals(setOf("changeCase", "inflection", "capitalize", "path"), names)
+        // And identifier completion still offers the engine-name variants.
+        val vars = proposals("hello <%= <caret> %>\n", context).map { it.name }.toSet()
+        assertEquals(setOf("name", "Name", "names", "Names", "h"), vars)
     }
 
     // ---- negative: positions that are not completion entry points ----

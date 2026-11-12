@@ -45,8 +45,23 @@ class HygenFrontmatterKeyValue(node: ASTNode) : ASTWrapperPsiElement(node) {
         }
 }
 
-/** An EJS island: `<%= %>`, `<%- %>`, `<% %>`, `<%# %>`. */
-class HygenEjsIsland(node: ASTNode) : ASTWrapperPsiElement(node)
+/**
+ * An EJS island: `<%= %>`, `<%- %>`, `<% %>`, `<%# %>`.
+ *
+ * Implements [PsiLanguageInjectionHost] (design.md D3): the island's code region (the text between
+ * the opening and closing delimiters) is exposed to the injection API so real JavaScript
+ * highlighting/completion/error-marking is provided inside `<% %>` and `<%= %>` tags. The open and
+ * close delimiters stay under the template lexer/highlighter; only the code region between them is
+ * injected.
+ */
+class HygenEjsIsland(node: ASTNode) : ASTWrapperPsiElement(node), PsiLanguageInjectionHost {
+    override fun isValidHost(): Boolean = true
+
+    override fun updateText(text: String): PsiLanguageInjectionHost = this
+
+    override fun createLiteralTextEscaper(): LiteralTextEscaper<PsiLanguageInjectionHost> =
+        LiteralTextEscaper.createSimple(this)
+}
 
 /**
  * The body of the template (everything after the closing frontmatter delimiter).

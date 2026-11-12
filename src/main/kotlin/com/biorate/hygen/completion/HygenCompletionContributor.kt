@@ -1,5 +1,6 @@
 package com.biorate.hygen.completion
 
+import com.biorate.hygen.context.HygenTemplateContext
 import com.biorate.hygen.lang.HygenLanguage
 import com.biorate.hygen.lang.psi.HygenFile
 import com.intellij.codeInsight.completion.CompletionContributor
@@ -39,7 +40,11 @@ class HygenCompletionProvider : CompletionProvider<CompletionParameters>() {
         val file = parameters.position.containingFile as? HygenFile ?: return
         if (file.language != HygenLanguage) return
 
-        for (proposal in HygenCompletion.computeProposals(file, parameters.offset)) {
+        // Resolve the visible context (engine defaults + config + hook + in-template declarations)
+        // and feed it to the pure completion logic.
+        val context = HygenTemplateContext.visibleAt(file, parameters.offset)
+
+        for (proposal in HygenCompletion.computeProposals(file, parameters.offset, context)) {
             result.addElement(
                 LookupElementBuilder.create(proposal.name)
                     .withTypeText(proposal.description),

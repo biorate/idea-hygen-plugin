@@ -141,3 +141,104 @@ Open the plugin project and the real template dir (`/www/biorate/core/packages/@
 ### 4.6 Note
 
 The plugin is built and installed into the local IDEA 2025.3. If a check above fails, record the observed behavior and return it; the failing scenario needs a fix before the change is archived. Task 7.2 (`./gradlew buildPlugin` + install) is the separate build/install step that must already have been performed for this sandbox pass.
+
+---
+
+# Verification — change `ejs-context-and-injection` (0.2.x)
+
+Verification run: **2026-11-12** · Command: `./gradlew cleanTest test --console=plain`
+This is a **delta section** appended by task 4.1. The MVP sections above remain authoritative for their own change; everything here covers the `ejs-context-and-injection` change (template-context + EJS-island injection + synthetic declarations).
+
+## A. Full-suite results — 165 tests, 0 failures / 0 errors / 0 skipped
+
+| Test class | Tests | Failures | Errors | Skipped | Notes |
+|---|---|---|---|---|---|
+| `HygenCatalogIntegrityTest` | 17 | 0 | 0 | 0 | `catalog` — integrity of frontmatter/changeCase/inflection catalogs |
+| `HygenCompletionTest` | 26 | 0 | 0 | 0 | `completion` — frontmatter/helper/context-variable proposals |
+| `HygenTemplateContextRealTemplatesTest` | 1 | 0 | 0 | 0 | `context` — **NEW (4.1)** `visibleAt` corpus sweep (never throws, engine defaults) |
+| `HygenTemplateContextTest` | 24 | 0 | 0 | 0 | `context` — defaults/`.hygen.js`/prompt-hook/in-template/merge/shadowing/cache |
+| `HygenEjsInspectionTest` | 11 | 0 | 0 | 0 | `validation` — unterminated tag, `<%%` escape, hook-file EJS |
+| `HygenFrontmatterInspectionTest` | 13 | 0 | 0 | 0 | `validation` — unknown key, inject+replace, anchor w/o inject, broken delimiter |
+| `HygenRealWorldTemplatesTest` | 1 | 0 | 0 | **0** | Ran (not skipped) — **zero problems** on 29 real `@biorate/hygen` templates |
+| `HygenFileTypeOverriderTest` | 6 | 0 | 0 | 0 | `host-detection` — hook files vs templates classification |
+| `HygenHostDetectionTest` | 10 | 0 | 0 | 0 | `host-detection` — `detectHost` per scenario |
+| `HygenLexerContinuityTest` | 4 | 0 | 0 | 0 | `language` — lexer continuity (2 fixtures + 2 real-corpus), editor-flash regression |
+| `HygenPsiTest` | 5 | 0 | 0 | 0 | `language` — file-type registration, PSI tree shape, `toValue` |
+| `HygenTokenizerTest` | 6 | 0 | 0 | 0 | `language` — lexer: frontmatter/body/EJS families + trimming |
+| `HygenHighlightingTest` | 4 | 0 | 0 | 0 | `language` — token→attribute-key wiring, color settings page |
+| `HygenEjsContextualNamesTest` | 9 | 0 | 0 | 0 | `injection` — `resolveRoot` / `isGroupMember` for synthetic declarations |
+| `HygenEjsIslandInjectorTest` | 11 | 0 | 0 | 0 | `injection` — island JS injection incl. `testCorpusBodyAndIslandRangesNeverOverlap` |
+| `HygenEjsPlaceholderInjectorTest` | 2 | 0 | 0 | 0 | `injection` — `MultiHostRegistrarPlaceholderHelper` reflective adapter |
+| `HygenEjsPreludeTest` | 9 | 0 | 0 | 0 | `injection` — synthetic prelude (`h` skeleton, catalogs, helpers, engine defaults) |
+| `HygenEjsReferenceProviderTest` | 3 | 0 | 0 | 0 | `injection` — reference contributor safety contract |
+| `HygenInjectionTest` | 3 | 0 | 0 | 0 | `host-detection` — body injector contracts (host language + ranges) |
+| **Total** | **165** | **0** | **0** | **0** | **BUILD SUCCESSFUL** |
+
+## B. Scenario → test mapping — `hygen-template-context`
+
+| Scenario | Covered by | Status |
+|---|---|---|
+| Bare template without config (engine defaults `name`/`Name`/`names`/`Names`/`h`) | `HygenTemplateContextTest.testEngineDefaultsAlwaysPresent`, `testLaterSourcesAddToEngineDefaults`; `HygenCompletionTest.testDefaultsOnlyFileOffersEngineNameVariants`, `testPartialIdentifierOffersNameVariants`, `testUnterminatedTagStillOffersContextVariables`; `HygenTemplateContextRealTemplatesTest.testVisibleAtNeverThrowsAndAlwaysHasEngineDefaults`; `HygenEjsPreludeTest.testPreludeDeclaresEngineDefaultsEvenWithoutContext` | ✅ (⚠️ completion popup / editor = manual) |
+| `localsDefaults` keys offered | `HygenTemplateContextTest.testLocalsDefaultsKeysOffered`; `HygenCompletionTest.testConfigLocalsBackedFileOffersLocals`; `HygenEjsContextualNamesTest.testLocalsAndHookVariablesResolve` | ✅ (⚠️ popup = manual) |
+| Project helpers merge into `h` | `HygenTemplateContextTest.testConfigHelpersOffered`, `testHelpersFromRealApplicationTemplateConfig`; `HygenCompletionTest.testConfigHelpersMergeIntoHDotCompletion`, `testConfigHelpersCarryDescriptions`; `HygenEjsContextualNamesTest.testConfigHelperResolvesBare`, `testHMemberAccessResolves`; `HygenEjsPreludeTest.testPreludeDeclaresConfigHelpersCallableOrAny` | ✅ (⚠️ no false errors in editor = manual) |
+| Missing / unparsable config degrades | `HygenTemplateContextTest.testMissingOrEmptyConfigYieldsNothing`, `testUnparsableConfigYieldsNothing`, `testConfigWithoutExportsYieldsNothing`; `HygenCompletionTest.testMissingConfigFallsBackToEngineDefaults` | ✅ |
+| Question names offered | `HygenTemplateContextTest.testQuestionNamesOffered`, `testQuestionNamesInExpressionModuleExports`; `HygenCompletionTest.testConfigLocalsBackedFileOffersLocals` | ✅ |
+| `params` keys offered | `HygenTemplateContextTest.testParamsKeysOffered`, `testFunctionNamedParamsKeysOffered`, `testParamsCallArgumentKeysOffered` | ✅ |
+| Dynamic names skipped | `HygenTemplateContextTest.testDynamicQuestionNameSkipped` | ✅ |
+| In-template declaration visible below its island | `HygenTemplateContextTest.testDeclarationVisibleBelowItsIsland`, `testConstDeclarationVisibleBelowIsland`, `testExactOffsetAtIslandEndIncludesIt`, `testArrowFunctionIsNotADeclaration`; `HygenCompletionTest.testDeclarationBelowCaretIsOffered`, `testConstDeclarationBelowCaretIsOffered`; `HygenEjsContextualNamesTest.testInTemplateDeclarationResolves` | ✅ |
+| No back-propagation | `HygenTemplateContextTest.testNoBackPropagationAboveIsland`; `HygenCompletionTest.testNoBackPropagationAboveCaret` | ✅ |
+| Merged context w/o conflicts (shadowing) | `HygenTemplateContextTest.testShadowingCollapsesToSingleName`, `testLaterSourcesAddToEngineDefaults` | ✅ |
+| Nearest-`.hygen.js` walk-up + hook order | `HygenTemplateContextTest.testNearestConfigWalkFindsNearest`, `testNoConfigAboveReturnsNull`, `testHookFirstExistingOrder`; `testConfigChangeInvalidatesCache` (VFS cache invalidation) | ✅ |
+
+## C. Scenario → test mapping — `hygen-ejs-injection`
+
+| Scenario | Covered by | Status |
+|---|---|---|
+| Expression gets JS features (`<%= … %>`, `<% … %>`, trim variants) | `HygenEjsIslandInjectorTest.testExpressionGetsJsInjected`, `testScriptletGetsJsInjected`, `testTrimMarkersExcluded`, `testMinusTrimMarkersExcluded`, `testIslandCodeRangeTrimsWhitespace` | ✅ (⚠️ colors in real editor = manual) |
+| Non-code regions untouched (frontmatter/body/escape/comment/empty) | `HygenEjsIslandInjectorTest.testEscapeHasNoRange`, `testCommentIslandHasNoRange`, `testEmptyIslandHasNoRange`, `testWhitespaceOnlyIslandHasNoRange`; body side `HygenInjectionTest`; corpus `testCorpusBodyAndIslandRangesNeverOverlap` | ✅ (⚠️ visual = manual) |
+| `h.changeCase` chain resolves | `HygenEjsPreludeTest.testPreludeDeclaresHNamespace`, `testPreludeDeclaresAllChangeCaseMembers`, `testPreludeParsesAsJavaScript`; `HygenEjsContextualNamesTest.testHNamespaceAlwaysResolves`, `testHMemberAccessResolves`, `testGroupMembersAreKnown` | ✅ (⚠️ injected-editor resolution = manual) |
+| Project helper resolves | `HygenEjsPreludeTest.testPreludeDeclaresConfigHelpersCallableOrAny`; `HygenEjsContextualNamesTest.testConfigHelperResolvesBare`, `testHMemberAccessResolves` | ✅ (⚠️ no false errors = manual) |
+| Graceful degradation (unterminated / empty / unparsable) | `HygenEjsIslandInjectorTest.testUnterminatedTagHasNoRange`, `testEmptyIslandHasNoRange`, `testEscapeHasNoRange`; `HygenEjsReferenceProviderTest.testProviderReturnsEmptyForNonInjectedElement`, `testProviderReturnsEmptyForBodyLeaf`, `testReferenceContributorRegistersWithoutThrowing`; `HygenEjsPlaceholderInjectorTest.testCreateWrapsRegistrarWhenClassPresent`, `testInjectReachesRegistrarAndCompletes`; `HygenCompletionTest.testUnterminatedTagStillOffersContextVariables` | ✅ (⚠️ "no plugin exception logged" = manual) |
+
+## D. Corpus sweep (tasks 3.1 / 4.1) — RAN, not skipped
+
+All three sweeps read real template files off disk and were **confirmed RUNNING** (`skipped = 0`; each guards on directory presence with `assumeTrue`, and the corpus is present on this machine):
+
+1. **Injection-overlap sweep** — `HygenEjsIslandInjectorTest.testCorpusBodyAndIslandRangesNeverOverlap` over `/www/biorate/application-template/_templates` (**186** `.ejs.t` files): asserts the body-injector ranges and the EJS-island injector ranges **never overlap** (a host/range leak would fail the file). ✅ 0 failures.
+2. **Inspection zero-false-positive sweep** — `HygenRealWorldTemplatesTest.testRealWorldTemplatesHaveZeroProblems` over `/www/biorate/core/packages/@biorate/hygen` (**29** files: 6 `src/templates/**` + 23 `tests/fixtures/**`, excluding the deliberately-broken `inject-error` subtree): the full file-level inspection suite reports **zero** warnings/errors. ✅
+3. **Context-resolution sanity sweep (NEW)** — `HygenTemplateContextRealTemplatesTest.testVisibleAtNeverThrowsAndAlwaysHasEngineDefaults` over a sample (12) of `/www/biorate/application-template/_templates` at every EJS island offset: `HygenTemplateContext.visibleAt` **never throws** and always returns a context containing the engine defaults (`name`/`Name`/`names`/`Names`/`h`). ⚠️ In-memory harness (an in-memory file has no `VirtualFile`, so the on-disk config/hook path degrades to engine defaults); the disk-backed config resolution is exercised separately by `HygenTemplateContextTest.testHelpersFromRealApplicationTemplateConfig` (real `.hygen.js`) and `testConfigChangeInvalidatesCache` (real VFS).
+
+> **Corpus counts on this machine:** `/www/biorate/application-template/_templates` → 186 `.ejs.t`; `/www/biorate/core/packages/@biorate/hygen` → 29 collected real templates (the 1 remaining `.ejs.t` is the deliberate `inject-error` fixture, excluded by design).
+
+## E. Manual sandbox checklist (task 4.2 — `./gradlew buildPlugin` + install into IDEA 2025.2)
+
+Open the plugin project and the real template dir `/www/biorate/application-template`. Reference files below.
+
+### E.1 Completion of variables in real templates
+
+| File to open | Expected |
+|---|---|
+| `_templates/app/create/00007.00_.ls-lint.yml.ejs.t` | In the island `<%= h.root(\`${ROOT}/.ls-lint.yml\`) %>`, Ctrl+Space after `h.` offers `.hygen.js` helpers (`root`, `server`, `client`, `hygen`, `stringify`, `defined`, `platform`) alongside the catalog members; the top-level identifier completion offers `ROOT` (context variable) and `name`/`Name`/`names`/`Names`. |
+| `_templates/app/create/00005.00_.gitignore.ejs.t` | Any `h.<helper>` islands resolve their helper and variables per the resolved context; no unknown-symbol squiggles. |
+
+### E.2 JS highlighting in islands
+
+| File to open | Expected |
+|---|---|
+| Any `_templates/app/create/**/*.ejs.t` with a `<%…%>` / `<%=…%>` island | The island code region is **highlighted as JavaScript** (keywords, strings, function calls), while the surrounding body is highlighted in the host language and the frontmatter keeps its own colors. Trim variants (`<%_ … _%>`, `<%- … -%>`) do not leak `_`/`-` markers into the JS range. |
+
+### E.3 No false errors on `.hygen.js` helpers
+
+| File to open | Expected |
+|---|---|
+| `_templates/app/create/00007.00_.ls-lint.yml.ejs.t` | `h.root` (a config helper surfaced as an `h` member) and unresolved-call `root(`/`stringify(` references show **no** "unknown symbol" / "unused" error markers in the injected JS. |
+
+### E.4 Unterminated-tag stability
+
+| Input (paste into a scratch `.ejs.t` under `_templates`) | Expected |
+|---|---|
+| `<%= h.changeCase.param(name` (no `%>`) | Editor stays open and usable; the **"Unterminated EJS tag"** inspection still fires; no plugin exception is logged; the unterminated island loses injection while the rest of the file keeps template highlighting. |
+
+### E.5 Note
+
+Task 4.2 (`./gradlew buildPlugin` + install) is the separate build/install step that must be performed before this sandbox pass. If a check above fails, record the observed behavior and return it; the failing scenario needs a fix before the change is archived.

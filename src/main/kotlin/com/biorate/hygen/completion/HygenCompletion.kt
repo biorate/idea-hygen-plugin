@@ -3,6 +3,8 @@ package com.biorate.hygen.completion
 import com.biorate.hygen.catalog.HygenChangeCaseCatalog
 import com.biorate.hygen.catalog.HygenFrontmatterCatalog
 import com.biorate.hygen.catalog.HygenInflectionCatalog
+import com.biorate.hygen.context.HygenContext
+import com.biorate.hygen.context.HygenTemplateContext
 import com.biorate.hygen.lang.HygenTokenTypes
 import com.biorate.hygen.lang.psi.HygenFile
 import com.intellij.psi.PsiElement
@@ -10,7 +12,8 @@ import com.intellij.psi.PsiElement
 /**
  * One completion candidate produced by the hygen completion contributors (task 6.2):
  *
- * - [name]: the member / frontmatter key / top-level helper inserted by the lookup.
+ * - [name]: the member / frontmatter key / top-level helper / context variable inserted by the
+ *   lookup.
  * - [description]: the one-line tooltip shown for the candidate.
  * - [isNamespace]: true for the `h.changeCase` / `h.inflection` namespaces, which open a nested
  *   completion rather than producing a value on their own.
@@ -30,8 +33,11 @@ data class HygenCompletionCandidate(
  * editor should offer:
  *
  *  - a frontmatter key position -> the known keys from [HygenFrontmatterCatalog];
+ *  - inside an EJS island at an identifier position -> the visible context variables (engine
+ *    defaults, `.hygen.js` locals, hook variables and in-template declarations) from [context];
  *  - inside an EJS island after `h.` -> the fork's top-level helpers (`changeCase`, `inflection`,
- *    `capitalize`, `path`) exposed by the engine's `src/helpers.ts`;
+ *    `capitalize`, `path`) exposed by the engine's `src/helpers.ts`, merged with the `.hygen.js`
+ *    `helpers` from [context];
  *  - inside an EJS island after `h.changeCase.` -> [HygenChangeCaseCatalog] members;
  *  - inside an EJS island after `h.inflection.` -> [HygenInflectionCatalog] members;
  *  - anything else -> an empty list (no completion is offered).
@@ -39,6 +45,10 @@ data class HygenCompletionCandidate(
  * The logic is defensive: it never throws and never inspects outside the PSI node that contains
  * the caret, so completion keeps working on broken templates (spec `hygen-completion`: an
  * unterminated `<%` still yields `h.`-driven completion rather than an error).
+ *
+ * The context is supplied by the caller (the [HygenCompletionProvider] resolves it from disk via
+ * [HygenTemplateContext.visibleAt]); the two-argument overload is a convenience that resolves the
+ * same context. This keeps the completion routing pure and the disk-backed resolution in one place.
  */
 object HygenCompletion {
 
@@ -63,12 +73,27 @@ object HygenCompletion {
     /**
      * Returns the candidates the editor should offer at [caretOffset] in [file].
      * See the class doc for the routing rules.
+     *
+     * The visible context is resolved here via [HygenTemplateContext.visibleAt]. Prefer the
+     * three-argument overload when you already have a [HygenContext].
      */
-    fun computeProposals(file: HygenFile, caretOffset: Int): List<HygenCompletionCandidate> {
+    fun computeProposals(file: HygenFile, caretOffset: Int): List<HygenCompletionCandidate> =
+        computeProposals(file, caretOffset, HygenTemplateContext.visibleAt(file, caretOffset))
+
+    /**
+     * Returns the candidates the editor should offer at [caretOffset] in [file] given the already
+     * resolved [context] (the identifiers visible at that offset). The production adapter
+     * ([HygenCompletionProvider]) resolves [context] from disk and passes it in.
+     */
+    fun computeProposals(
+        file: HygenFile,
+        caretOffset: Int,
+        context: HygenContext,
+    ): List<HygenCompletionCandidate> {
         if (file.text.isEmpty()) return emptyList()
         val element = elementAt(file, caretOffset) ?: return emptyList()
-        return when (val context = EjsContext.from(element)) {
-            is EjsContext.InIsland -> helperProposals(file, context.islandStart, caretOffset)
+        return when (val island = EjsContext.from(element)) {
+            is EjsContext.InIsland -> islandProposals(file, island.islandStart, caretOffset, context)
             EjsContext.InFrontmatter -> frontmatterProposals(file, caretOffset)
             EjsContext.None -> emptyList()
         }
@@ -96,20 +121,46 @@ object HygenCompletion {
         return !linePrefix.contains(':')
     }
 
-    /** Helper-object completion, based on the text typed inside the island before the caret. */
-    private fun helperProposals(
+    /**
+     * Completion inside an EJS island. A bare identifier (or an empty prefix) offers the visible
+     * context variables; a member chain is only supported for the `h` namespace, so any other
+     * dotted expression yields nothing.
+     */
+    private fun islandProposals(
         file: HygenFile,
         islandStart: Int,
         caretOffset: Int,
+        context: HygenContext,
     ): List<HygenCompletionCandidate> {
         val typed = file.text.substring(islandStart, caretOffset.coerceIn(islandStart, file.text.length))
         val expression = typed.replaceFirst(OPENING_DELIMITER, "").trim()
+        if (expression == "h" || expression.startsWith("h.")) {
+            return helperProposals(expression, context)
+        }
+        // A dotted expression on anything other than `h` is not a supported completion entry point
+        // (no member inference outside the helper namespace).
+        if (expression.contains(".")) return emptyList()
+        return variableProposals(context)
+    }
+
+    /** The context variables offered at a bare-identifier position. */
+    private fun variableProposals(context: HygenContext): List<HygenCompletionCandidate> =
+        context.variables.map { name ->
+            HygenCompletionCandidate(name, "template variable visible in this scope")
+        }
+
+    /** Helper-object completion, based on the text typed inside the island before the caret. */
+    private fun helperProposals(
+        expression: String,
+        context: HygenContext,
+    ): List<HygenCompletionCandidate> {
         val parts = expression.split(".").map { it.trim() }
         if (parts.isEmpty() || parts.first() != "h") return emptyList()
 
         return when {
-            // `h.` (or `h` alone) -> top-level helpers.
-            parts.size == 1 || (parts.size == 2 && parts[1].isEmpty()) -> topLevelHelpers
+            // `h.` (or `h` alone) -> top-level helpers + the config's `helpers` members.
+            parts.size == 1 || (parts.size == 2 && parts[1].isEmpty()) ->
+                topLevelHelpers + configHelperProposals(context)
             // `h.changeCase.*` -> change-case members.
             parts.size in 2..3 && parts[1] == "changeCase" -> changeCaseMembers()
             // `h.inflection.*` -> inflection members.
@@ -117,6 +168,12 @@ object HygenCompletion {
             else -> emptyList()
         }
     }
+
+    /** The `.hygen.js` `helpers` members (callable-or-any, design.md D5) offered after `h.`. */
+    private fun configHelperProposals(context: HygenContext): List<HygenCompletionCandidate> =
+        context.helpers.map { name ->
+            HygenCompletionCandidate(name, "helper from the project's .hygen.js")
+        }
 
     private fun changeCaseMembers(): List<HygenCompletionCandidate> =
         HygenChangeCaseCatalog.members.entries.map { (name, description) ->

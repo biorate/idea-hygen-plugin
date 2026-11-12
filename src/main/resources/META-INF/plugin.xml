@@ -29,8 +29,15 @@
         <colorSettingsPage implementationClass="com.biorate.hygen.lang.highlight.HygenColorSettingsPage"/>
         <fileTypeOverrider implementation="com.biorate.hygen.lang.HygenFileTypeOverrider"/>
         <multiHostInjector implementation="com.biorate.hygen.lang.injection.HygenMultiHostInjector"/>
+        <multiHostInjector implementation="com.biorate.hygen.lang.injection.HygenEjsIslandInjector"/>
         <completion.contributor language="HygenTemplate"
                                 implementationClass="com.biorate.hygen.completion.HygenCompletionContributor"/>
+        <!-- The reference contributor fires inside the JavaScript injected into EJS islands and
+             resolves the template-context identifiers (`h`, the `name` variants, `.hygen.js`
+             helpers) so the injected fragment has no false "unknown symbol" markers. It is gated
+             to hygen-island injections, so ordinary JavaScript is untouched (design.md D4). -->
+        <psi.referenceContributor language="JavaScript"
+                                  implementation="com.biorate.hygen.lang.injection.HygenEjsReferenceContributor"/>
 
         <localInspection language="HygenTemplate"
                          shortName="HygenUnknownFrontmatterKey"
