@@ -11,11 +11,17 @@
     <depends>com.intellij.modules.platform</depends>
 
     <extensions defaultExtensionNs="com.intellij">
+        <!-- A compound extension (`.ejs.t`) cannot be matched through the `extensions`
+             attribute: IntelliJ matches an extension by the segment after the last dot, so
+             `ejs.t` would never match `...prettierrc.ejs.t` and the file would fall through
+             to whichever plugin owns `*.t`. `patterns` registers a FileNameMatcher that is
+             applied to the whole file name, so `.ejs.t` files resolve to this type while
+             plain `.t` files stay with the Perl file type. -->
         <fileType name="Hygen Template"
                   language="HygenTemplate"
                   implementationClass="com.biorate.hygen.lang.HygenFileType"
                   fieldName="INSTANCE"
-                  extensions="ejs.t"/>
+                  patterns="*.ejs.t"/>
         <lang.parserDefinition language="HygenTemplate"
                                implementationClass="com.biorate.hygen.lang.HygenParserDefinition"/>
         <lang.syntaxHighlighter language="HygenTemplate"
