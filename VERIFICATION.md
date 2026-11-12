@@ -296,3 +296,53 @@ This is a **delta section** appended by task 4.2. The MVP / `ejs-context-and-inj
 - **Reinstall (post-fix)** — the `HygenSetupValueInspection` false-positive fix landed *after* the initial 0.4.0 build/install. `./gradlew buildPlugin` re-run → **BUILD SUCCESSFUL** (the fresh `build/distributions/idea-hygen-plugin-0.4.0.zip` is regenerated, jar confirmed to contain `HygenSetupValueInspectionKt.containsEjsIsland`). The installed `~/.local/share/JetBrains/IntelliJIdea2025.2/plugins/idea-hygen-plugin/lib/idea-hygen-plugin-0.4.0.jar` was **overwritten with the fresh jar** (same name; old file replaced), so the plugin dir now carries the fixed build — see §B item 2 for the fix description.
 
 > **Corpus counts on this machine:** `/www/biorate/application-template/_templates` → 187 files (186 `.ejs.t`); `/www/biorate/core/packages/@biorate/hygen` → 42 collected real templates (1 remaining `.ejs.t` is the deliberate `inject-error` fixture, excluded by design).
+
+---
+
+# Verification — change `combined-js-injection` (0.5.0)
+
+Verification run: **2026-11-12** · Command: `./gradlew buildPlugin` + `./gradlew test --console=plain`
+This is a **delta section** appended by the 0.5.0 build. The MVP / `ejs-context-and-injection` / `fork-parity-inspections` sections above remain authoritative for their own changes; everything here covers the `combined-js-injection` change (**a single JS document per file** — the per-island `MultiHostRegistrar` injection was replaced by one file-level JS document that covers all EJS islands).
+> **Scope note:** `HygenEjsIslandInjector` / `HygenEjsIslandInjectorTest` were replaced by `HygenEjsFileInjector` / `HygenEjsFileInjectorTest` for this change; the test-class count and names below reflect that.
+
+## A. Full-suite results — 212 tests, 1 failure / 0 errors / 0 skipped
+
+| Test class | Tests | Failures | Errors | Skipped | Notes |
+|---|---|---|---|---|---|
+| `HygenCatalogIntegrityTest` | 17 | 0 | 0 | 0 | `catalog` — integrity of frontmatter/changeCase/inflection catalogs |
+| `HygenCompletionTest` | 27 | 0 | 0 | 0 | `completion` — proposal set incl. `ts`/`_` spec-variables |
+| `HygenTemplateContextRealTemplatesTest` | 1 | 0 | 0 | 0 | `context` — `visibleAt` corpus sweep (never throws, engine defaults) |
+| `HygenTemplateContextTest` | 30 | 0 | 0 | 0 | `context` — multi-config names, walk-up priority, `.hygen.ts` parsing, cache |
+| `HygenEjsInspectionTest` | 11 | 0 | 0 | 0 | `validation` — unterminated tag, `<%%` escape, hook-file EJS |
+| `HygenForkFrontmatterValueInspectionTest` | 10 | 0 | 0 | 0 | `validation` — `setup:`/`from:` value inspections + dynamic-value regressions |
+| `HygenFrontmatterInspectionTest` | 13 | 0 | 0 | 0 | `validation` — unknown key, inject+replace, anchor w/o inject, broken delimiter |
+| `HygenRealWorldTemplatesTest` | 1 | **1** | 0 | **0** | Ran (not skipped) — **1 known pre-existing environmental failure** (see below) |
+| `HygenHighlightingTest` | 4 | 0 | 0 | 0 | `language` — token→attribute-key wiring, color settings page |
+| `HygenFileTypeOverriderTest` | 6 | 0 | 0 | 0 | `host-detection` — hook files vs templates classification |
+| `HygenHostDetectionTest` | 10 | 0 | 0 | 0 | `host-detection` — `detectHost` per scenario |
+| `HygenLexerContinuityTest` | 4 | 0 | 0 | 0 | `language` — lexer continuity (2 fixtures + disk corpus), editor-flash regression |
+| `HygenPatternAssociatorTest` | 7 | 0 | 0 | 0 | `settings` — filename-pattern association |
+| `HygenPsiTest` | 5 | 0 | 0 | 0 | `language` — file-type registration, PSI tree shape, `toValue` |
+| `HygenTokenizerTest` | 6 | 0 | 0 | 0 | `language` — lexer: frontmatter/body/EJS families + trimming |
+| `HygenEjsContextualNamesTest` | 9 | 0 | 0 | 0 | `injection` — `resolveRoot` / `isGroupMember` for synthetic declarations |
+| `HygenEjsFileInjectorTest` | 14 | 0 | 0 | 0 | `injection` — **NEW (0.5.0)** single-`PsiDocument`/single-language file-level JS doc with per-island ranges |
+| `HygenEjsPlaceholderInjectorTest` | 2 | 0 | 0 | 0 | `injection` — `MultiHostRegistrarPlaceholderHelper` reflective adapter |
+| `HygenEjsPreludeTest` | 9 | 0 | 0 | 0 | `injection` — synthetic prelude (`h` skeleton, catalogs, helpers, engine defaults) |
+| `HygenEjsReferenceProviderTest` | 3 | 0 | 0 | 0 | `injection` — reference contributor safety contract |
+| `HygenInjectionTest` | 3 | 0 | 0 | 0 | `host-detection` — body injector contracts (host language + ranges) |
+| `HygenPatternsTest` | 16 | 0 | 0 | 0 | `settings` — pattern list validation/UI state |
+| `HygenTemplateSettingsTest` | 4 | 0 | 0 | 0 | `settings` — persistence/live association |
+| **Total** | **212** | **1** | **0** | **0** | **211 pass, 1 known failure** |
+
+## B. Known pre-existing environmental failure (IGNORED — not a regression)
+
+- **Test:** `HygenRealWorldTemplatesTest.testRealWorldTemplatesHaveZeroProblems` (`HygenRealWorldTemplatesTest.kt:63`).
+- **Cause:** the real template corpus at `/www/biorate/core/packages/@biorate/hygen` currently carries **uncommitted upstream frontmatter keys** not in the plugin's `knownKeys` catalog — `glob`, `base`, `stripExtensions`, `skipIfExists`, `skip`, `transform` (24 findings, `assert expected:<0> but was:<24>`). These keys come from the upstream working tree and are **not** part of the `combined-js-injection` change or the plugin's own key set.
+- **Disposition:** pre-existing, unrelated to this change; **not touched, tests not modified**. All other 211 tests pass.
+
+## C. Build & install (task 0.5.0)
+
+- **Version bump** — `build.gradle.kts` `version = "0.5.0"`.
+- **Build** — `./gradlew buildPlugin` → **BUILD SUCCESSFUL**; artifact `build/distributions/idea-hygen-plugin-0.5.0.zip` (jar manifest `Version: 0.5.0`, `Build-Plugin-Version: 2.20.1`, `Platform-Version: 2025.3.2`, `Kotlin-Version: 2.2.20`).
+- **Install** — unpacked the zip over `~/.local/share/JetBrains/IntelliJIdea2025.2/plugins/idea-hygen-plugin/` exactly as prior versions (previous `lib/idea-hygen-plugin-0.4.0.jar` removed, replaced by `lib/idea-hygen-plugin-0.5.0.jar`; jar re-verified from the install dir to carry `Version: 0.5.0`). The running IDEA on `IU-253.30387.90` loads the plugin from this directory on restart — conditional on a restart to become active.
+- **Verification command** — `./gradlew test --console=plain` → **BUILD FAILED** only due to the single known environmental failure above; **211 tests passed, 0 errors, 0 skipped**.

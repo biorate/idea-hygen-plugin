@@ -34,7 +34,10 @@
                                  displayName="Hygen Templates"
                                  instance="com.biorate.hygen.settings.HygenTemplateConfigurable"/>
         <multiHostInjector implementation="com.biorate.hygen.lang.injection.HygenMultiHostInjector"/>
-        <multiHostInjector implementation="com.biorate.hygen.lang.injection.HygenEjsIslandInjector"/>
+        <!-- File-level JS injection into all EJS islands of a template as ONE JS document per file
+             (design combined-js-injection): braces and declarations span islands instead of each
+             island being its own document (which produced false "Missing }"). -->
+        <multiHostInjector implementation="com.biorate.hygen.lang.injection.HygenEjsFileInjector"/>
         <completion.contributor language="HygenTemplate"
                                 implementationClass="com.biorate.hygen.completion.HygenCompletionContributor"/>
         <!-- The reference contributor fires inside the JavaScript injected into EJS islands and

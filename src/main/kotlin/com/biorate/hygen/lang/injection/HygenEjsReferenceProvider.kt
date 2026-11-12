@@ -1,7 +1,6 @@
 package com.biorate.hygen.lang.injection
 
 import com.biorate.hygen.context.HygenTemplateContext
-import com.biorate.hygen.lang.psi.HygenEjsIsland
 import com.biorate.hygen.lang.psi.HygenFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiReference
@@ -24,12 +23,13 @@ import com.intellij.util.ProcessingContext
  * It is strictly additive and gated: it only ever registers a reference when the element is a JS
  * reference expression at the ROOT of a chain, the name is a known template-context identifier
  * (see [HygenEjsContextualNames]), and the element sits inside an injected fragment whose host is a
- * [HygenEjsIsland]. For every other element it returns an empty array, so normal JS resolution is
- * untouched.
+ * [HygenFile] (see [HygenEjsFileInjector] — since `combined-js-injection` the host is the whole
+ * file, not the individual island). For every other element it returns an empty array, so normal JS
+ * resolution is untouched.
  *
  * The host lookup goes through the platform's `InjectedLanguageUtil.findInjectionHost`, which is in
  * `app.jar` and therefore reached reflectively (like the placeholder helper) — a miss simply means
- * the element is not a hygen-island injection and the provider contributes nothing.
+ * the element is not a hygen EJS injection and the provider contributes nothing.
  */
 class HygenEjsReferenceProvider : com.intellij.psi.PsiReferenceProvider() {
 
@@ -38,21 +38,25 @@ class HygenEjsReferenceProvider : com.intellij.psi.PsiReferenceProvider() {
         context: ProcessingContext,
     ): Array<PsiReference> {
         // The costliest and most selective gate is first: only elements inside an injected fragment
-        // that originated from a HygenEjsIsland are ever considered. For every ordinary JS element
-        // (and every other injected language) this resolves to null and we return immediately, so
-        // the provider is a no-op outside hygen-island injections.
-        val island = islandHost(element) ?: return EMPTY
+        // that originated from a HygenFile are ever considered. For every ordinary JS element (and
+        // every other injected language) this resolves to null and we return immediately, so the
+        // provider is a no-op outside hygen EJS injections.
+        val file = fileHost(element) ?: return EMPTY
 
         // Then only JS reference expressions at the ROOT of a chain (no qualifier).
         val rootName = referencedName(element) ?: return EMPTY
         if (qualifier(element) != null) return EMPTY
 
-        val file = island.containingFile as? HygenFile ?: return EMPTY
-        val visible = HygenTemplateContext.visibleAt(file, island.textRange.startOffset)
+        // The visible context at the file start: engine defaults + config locals/helpers + hook
+        // variables. In-template declarations (`const x` in an island) are intentionally excluded —
+        // since `combined-js-injection` all islands share one JS document, the JS analyzer natively
+        // sees a preceding declaration, so the provider only has to cover the identifiers it can
+        // never infer (the `h` namespace and the config/hook names).
+        val visible = HygenTemplateContext.visibleAt(file, file.textRange.startOffset)
 
         if (!HygenEjsContextualNames.resolveRoot(visible, rootName, emptyList())) return EMPTY
 
-        return arrayOf(HygenContextualReference(element, rootName, island))
+        return arrayOf(HygenContextualReference(element, rootName, file))
     }
 
     private companion object {
@@ -82,15 +86,20 @@ class HygenEjsReferenceProvider : com.intellij.psi.PsiReferenceProvider() {
         private fun qualifier(element: PsiElement): PsiElement? =
             element.call("getQualifier") as? PsiElement
 
-        /** The [HygenEjsIsland] host of [element], or null when it is not a hygen-island injection. */
-        private fun islandHost(element: PsiElement): HygenEjsIsland? {
+        /**
+         * The [HygenFile] host of [element], or null when it is not a hygen EJS injection.
+         *
+         * Since `combined-js-injection` the injection host is the whole [HygenFile] (not the
+         * individual [HygenEjsIsland]), so the formerly-island-gated check now gates on the file.
+         */
+        private fun fileHost(element: PsiElement): HygenFile? {
             val method = findInjectionHost ?: return null
             val host = try {
                 method.invoke(null, element) as? PsiElement
             } catch (_: Throwable) {
                 null
             }
-            return host as? HygenEjsIsland
+            return host as? HygenFile
         }
 
         /** True when [element]'s class hierarchy carries an interface/class named like [typeName]. */

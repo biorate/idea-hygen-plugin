@@ -1,6 +1,5 @@
 package com.biorate.hygen.lang.injection
 
-import com.biorate.hygen.lang.psi.HygenEjsIsland
 import com.intellij.psi.PsiReferenceContributor
 import com.intellij.psi.PsiReferenceRegistrar
 import com.intellij.psi.PsiReferenceProvider
@@ -12,9 +11,10 @@ import com.intellij.patterns.PlatformPatterns
  *
  * Registered in `plugin.xml` for `language="JavaScript"`, it fires inside injected JS fragments.
  * The provider ([HygenEjsReferenceProvider]) is gated to injected fragments that originate from a
- * [HygenEjsIsland], so it never affects ordinary JavaScript: outside a hygen-island injection it
- * contributes nothing and the JS analyzer behaves exactly as before. This mirrors the
- * Angular (`Angular2TSReferencesContributor`) and Vue (`VueJSReferenceContributor`) pattern.
+ * [HygenFile] (the host used by the file-level JS injection, see [HygenEjsFileInjector]), so it
+ * never affects ordinary JavaScript: outside a hygen EJS injection it contributes nothing and the JS
+ * analyzer behaves exactly as before. This mirrors the Angular (`Angular2TSReferencesContributor`)
+ * and Vue (`VueJSReferenceContributor`) pattern.
  */
 class HygenEjsReferenceContributor : PsiReferenceContributor() {
 

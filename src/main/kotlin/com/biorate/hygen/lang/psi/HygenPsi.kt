@@ -12,10 +12,27 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiLanguageInjectionHost
 import com.biorate.hygen.lang.HygenFileType
 
-class HygenFile(viewProvider: FileViewProvider) : PsiFileBase(viewProvider, HygenLanguage) {
+/**
+ * A hygen template file.
+ *
+ * Implements [PsiLanguageInjectionHost] (design.md D3/D1 combined-js-injection): the JavaScript
+ * injection now targets the FILE as a single host — [HygenEjsFileInjector] registers one JS
+ * injection per template file and places every EJS island's code range as a fragment of it, so
+ * braces opened in one island and closed in another parse as one JS document. The literal text
+ * escaper is simple because injection happens at fixed, non-overlapping ranges relative to the
+ * file text.
+ */
+class HygenFile(viewProvider: FileViewProvider) : PsiFileBase(viewProvider, HygenLanguage), PsiLanguageInjectionHost {
     override fun getFileType(): FileType = HygenFileType
 
     override fun toString(): String = "Hygen template file"
+
+    override fun isValidHost(): Boolean = true
+
+    override fun updateText(text: String): PsiLanguageInjectionHost = this
+
+    override fun createLiteralTextEscaper(): LiteralTextEscaper<PsiLanguageInjectionHost> =
+        LiteralTextEscaper.createSimple(this)
 }
 
 /** A frontmatter `key: value` pair; the value may contain EJS islands. */

@@ -29,7 +29,7 @@ import java.io.File
  * on-disk config through the real VFS.
  *
  * The check SKIPS gracefully (JUnit `assumeTrue`) when the corpus directory is not present on this
- * machine, mirroring the sibling [com.biorate.hygen.lang.injection.HygenEjsIslandInjectorTest]
+ * machine, mirroring the sibling [com.biorate.hygen.lang.injection.HygenEjsFileInjectorTest]
  * corpus sweep.
  */
 class HygenTemplateContextRealTemplatesTest : BasePlatformTestCase() {
