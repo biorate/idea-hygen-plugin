@@ -1,0 +1,73 @@
+<idea-plugin>
+    <id>com.biorate.idea-hygen-plugin</id>
+    <name>Hygen Template Support</name>
+    <vendor>biorate</vendor>
+
+    <description><![CDATA[
+        Language support for <b>@biorate/hygen</b> templates: syntax highlighting,
+        structural validation and completion for <code>.ejs.t</code> files.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType name="Hygen Template"
+                  language="HygenTemplate"
+                  implementationClass="com.biorate.hygen.lang.HygenFileType"
+                  fieldName="INSTANCE"
+                  extensions="ejs.t"/>
+        <lang.parserDefinition language="HygenTemplate"
+                               implementationClass="com.biorate.hygen.lang.HygenParserDefinition"/>
+        <lang.syntaxHighlighter language="HygenTemplate"
+                                implementationClass="com.biorate.hygen.lang.highlight.HygenSyntaxHighlighter"/>
+        <colorSettingsPage implementationClass="com.biorate.hygen.lang.highlight.HygenColorSettingsPage"/>
+        <fileTypeOverrider implementation="com.biorate.hygen.lang.HygenFileTypeOverrider"/>
+        <multiHostInjector implementation="com.biorate.hygen.lang.injection.HygenMultiHostInjector"/>
+        <completion.contributor language="HygenTemplate"
+                                implementationClass="com.biorate.hygen.completion.HygenCompletionContributor"/>
+
+        <localInspection language="HygenTemplate"
+                         shortName="HygenUnknownFrontmatterKey"
+                         displayName="Unknown frontmatter key"
+                         groupDisplayName="Hygen"
+                         level="WARNING"
+                         enabledByDefault="true"
+                         implementationClass="com.biorate.hygen.inspection.HygenUnknownFrontmatterKeyInspection"/>
+        <localInspection language="HygenTemplate"
+                         shortName="HygenInjectReplaceConflicting"
+                         displayName="Mutually exclusive inject and replace"
+                         groupDisplayName="Hygen"
+                         level="ERROR"
+                         enabledByDefault="true"
+                         implementationClass="com.biorate.hygen.inspection.HygenInjectReplaceConflictingInspection"/>
+        <localInspection language="HygenTemplate"
+                         shortName="HygenAnchorWithoutInject"
+                         displayName="Anchor option without inject mode"
+                         groupDisplayName="Hygen"
+                         level="WARNING"
+                         enabledByDefault="true"
+                         implementationClass="com.biorate.hygen.inspection.HygenAnchorWithoutInjectInspection"/>
+        <localInspection language="HygenTemplate"
+                         shortName="HygenUnterminatedFrontmatter"
+                         displayName="Unterminated frontmatter block"
+                         groupDisplayName="Hygen"
+                         level="ERROR"
+                         enabledByDefault="true"
+                         implementationClass="com.biorate.hygen.inspection.HygenUnterminatedFrontmatterInspection"/>
+        <localInspection language="HygenTemplate"
+                         shortName="HygenUnterminatedEjs"
+                         displayName="Unterminated EJS tag"
+                         groupDisplayName="Hygen"
+                         level="ERROR"
+                         enabledByDefault="true"
+                         implementationClass="com.biorate.hygen.inspection.HygenUnterminatedEjsInspection"/>
+        <!-- No `language` attribute: the EJS-in-hook check must also run on the JS/TS hook
+             files, which the file-type overrider deliberately leaves as ordinary JS/TS. -->
+        <localInspection shortName="HygenEjsInHookFile"
+                         displayName="EJS tags in hook file"
+                         groupDisplayName="Hygen"
+                         level="WARNING"
+                         enabledByDefault="true"
+                         implementationClass="com.biorate.hygen.inspection.HygenEjsInHookFileInspection"/>
+    </extensions>
+</idea-plugin>
