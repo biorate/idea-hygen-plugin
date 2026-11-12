@@ -5,6 +5,10 @@
 ### Requirement: Template file type recognition
 The plugin SHALL recognize hygen templates by a user-configurable list of filename patterns, stored in plugin settings and defaulting to `*.t`. Patterns are applied through the platform file-type association API on startup and whenever settings change, so a change takes effect without IDE restart. The settings UI SHALL offer presets `*.t` (default), `*.ejs.t`, `*.tmpl` and accept custom wildcard filename patterns; invalid or non-filename patterns SHALL be rejected with a visible validation message and not applied. The previous hard-coded `.ejs.t` recognition is replaced by the default `*.t`.
 
+#### Scenario: Extension-based recognition
+- **WHEN** a file matching a configured filename pattern (by default `*.t`, e.g. `report.t` or `00009.00_.prettierrc.ejs.t`) is opened in the editor
+- **THEN** the file is handled as a hygen template with the hybrid frontmatter + EJS structure
+
 #### Scenario: Default pattern claims .t files
 - **WHEN** the plugin is installed with default settings and a file named `report.t` is opened
 - **THEN** the file is handled as a hygen template with the hybrid frontmatter + EJS structure
