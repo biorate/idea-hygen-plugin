@@ -32,8 +32,8 @@
 
 ## 7. Integration verification
 
-- [ ] 7.1 End-to-end sandbox pass: open `_templates` fixtures from a real project, exercise highlighting, detection, each inspection, and completion; record results.
-- [ ] 7.2 Build the distributable plugin (`./gradlew buildPlugin`), install into the local IDEA via IDEA MCP / sandbox, and confirm all spec scenarios behave as written.
+- [x] 7.1 End-to-end sandbox pass: open `_templates` fixtures from a real project, exercise highlighting, detection, each inspection, and completion; record results.
+- [x] 7.2 Build the distributable plugin (`./gradlew buildPlugin`), install into the local IDEA via IDEA MCP / sandbox, and confirm all spec scenarios behave as written.
 
 ## 8. Post-MVP TODO (tracked here, out of MVP scope)
 
