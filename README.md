@@ -11,7 +11,7 @@ An IntelliJ IDEA plugin for the **@biorate/hygen** code generator's templates: s
 - **Host-language injection** — the template body gets highlighting and analysis for the target language (JS/TS etc.), determined from the extension in the `to:` frontmatter value (including when the path contains EJS interpolations).
 - **JavaScript injection into EJS "islands"** — code inside `<% … %>`, `<%= … %>`, and their trim variants gets full JS support: highlighting, error analysis, and completion. References in injected code resolve through synthetic declarations (no false "unknown symbol"): `h`, template context variables, and helpers from the project hygen config (`.hygen.js`/`.hygen.cjs`/`.hygen.mjs`/`.hygen.ts`). All EJS islands of a template are analyzed as a single JavaScript document, so braces or declarations spanning islands no longer raise false errors (and declarations from earlier islands are visible in later ones).
 - **Inspections (tier 1, structural)**:
-  - *Unknown frontmatter key* (warning) — an unknown frontmatter key (the `@biorate/hygen` fork's key set: `to`, `inject`, `sh`, `before`, `after`, `prepend`, `append`, `at_line`, `skip_if`, `skip_if_not`, `create_if_missing`, `replace`, `unless_exists`, `local`, `setup`, `force`, `message`, `echo`, `spinner`, `sh_ignore_exit`, `mode`, `verbose`, `from`, `eof_last`);
+  - *Unknown frontmatter key* (warning) — an unknown frontmatter key (the `@biorate/hygen` fork's key set: `to`, `inject`, `sh`, `before`, `after`, `prepend`, `append`, `at_line`, `skip_if`, `skip_if_not`, `create_if_missing`, `replace`, `unless_exists`, `local`, `setup`, `force`, `message`, `echo`, `spinner`, `sh_ignore_exit`, `mode`, `verbose`, `from`, `eof_last`, `mirror`);
   - *Unterminated frontmatter block* / *Unterminated EJS tag* (error) — an unclosed frontmatter block or EJS tag;
   - *Mutually exclusive inject and replace* (error) — using `inject` and `replace` together;
   - *Anchor option without inject mode* (warning) — anchor options (`before`, `after`, `prepend`, `append`, `at_line`) without `inject` mode;
@@ -34,7 +34,7 @@ An IntelliJ IDEA plugin for the **@biorate/hygen** code generator's templates: s
    ```bash
    ./gradlew buildPlugin
    ```
-2. The artifact appears in `build/distributions/idea-hygen-plugin-<version>.zip` (current version — `0.4.0`).
+2. The artifact appears in `build/distributions/idea-hygen-plugin-<version>.zip` (current version — `0.5.0`).
 3. In the IDE: **Settings → Plugins → ⚙ → Install Plugin from Disk…** and pick the zip.
    Alternative: unpack the zip and copy the plugin directory into the IDE's plugins folder (`~/.local/share/JetBrains/IntelliJIdea<version>/plugins` etc.).
 4. Restart the IDE.
@@ -94,4 +94,4 @@ Key keys: `to`, `inject`, `sh`, `before`, `after`, `prepend`, `append`, `at_line
 ./gradlew runIde      # run an IDE sandbox with the plugin
 ```
 
-The project follows the OpenSpec process: feature specifications live in `openspec/specs/` (template language, validation, host-language detection, EJS injection, completion, template context), and manual/automated verification results are in `VERIFICATION.md`.
+The project follows the OpenSpec process: feature specifications live in `openspec/specs/` (template language, validation, host-language detection, config resolution, EJS injection, completion, template context), and manual/automated verification results are in `VERIFICATION.md`.

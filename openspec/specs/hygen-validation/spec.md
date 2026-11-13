@@ -6,7 +6,7 @@ Defines Level-1 (structural, static) validation for hygen templates: frontmatter
 ## Requirements
 
 ### Requirement: Frontmatter key validation
-The plugin SHALL validate frontmatter keys against the known set of the `@biorate/hygen` fork — including `to`, `inject`, `sh`, `before`, `after`, `prepend`, `append`, `at_line`, `skip_if`, `skip_if_not`, `create_if_missing`, `replace`, `unless_exists`, `local`, `setup`, `force`, `message`, `echo`, `spinner`, `sh_ignore_exit`, `mode`, `verbose`, `from`, and `eof_last` — and SHALL report unknown keys as warnings (not errors), since arbitrary keys may serve as template variables.
+The plugin SHALL validate frontmatter keys against the known set of the `@biorate/hygen` fork — including `to`, `inject`, `sh`, `before`, `after`, `prepend`, `append`, `at_line`, `skip_if`, `skip_if_not`, `create_if_missing`, `replace`, `unless_exists`, `local`, `setup`, `force`, `message`, `echo`, `spinner`, `sh_ignore_exit`, `mode`, `verbose`, `from`, `eof_last`, and `mirror` — and SHALL report unknown keys as warnings (not errors), since arbitrary keys may serve as template variables.
 
 #### Scenario: Fork-specific keys accepted
 - **WHEN** frontmatter contains `create_if_missing: true` and `replace: true`

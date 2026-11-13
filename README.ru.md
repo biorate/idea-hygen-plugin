@@ -11,7 +11,7 @@
 - **Инъекция языка-хозяина** — тело шаблона получает подсветку и анализ целевого языка (JS/TS и т.д.), определяемого по расширению в значении `to:` frontmatter (в т.ч. когда путь содержит EJS-интерполяции).
 - **Инъекция JavaScript в EJS-«острова»** — код внутри `<% … %>`, `<%= … %>` и их trim-вариантов получает полноценную поддержку JS: подсветку, анализ ошибок и автодополнение. Ссылки в инъецированном коде разрешаются синтетическими объявлениями (без ложных «unknown symbol»): `h`, переменные контекста шаблона, helpers из конфига проекта (`.hygen.js`/`.hygen.cjs`/`.hygen.mjs`/`.hygen.ts`). Все EJS-«острова» шаблона анализируются как единый JavaScript-документ, поэтому скобки или объявления, охватывающие несколько островов, больше не дают ложных ошибок (а объявления из ранних островов видны в последующих).
 - **Инспекции (уровень 1, структурные)**:
-  - *Unknown frontmatter key* (warning) — неизвестный ключ frontmatter (набор ключей форка `@biorate/hygen`: `to`, `inject`, `sh`, `before`, `after`, `prepend`, `append`, `at_line`, `skip_if`, `skip_if_not`, `create_if_missing`, `replace`, `unless_exists`, `local`, `setup`, `force`, `message`, `echo`, `spinner`, `sh_ignore_exit`, `mode`, `verbose`, `from`, `eof_last`);
+  - *Unknown frontmatter key* (warning) — неизвестный ключ frontmatter (набор ключей форка `@biorate/hygen`: `to`, `inject`, `sh`, `before`, `after`, `prepend`, `append`, `at_line`, `skip_if`, `skip_if_not`, `create_if_missing`, `replace`, `unless_exists`, `local`, `setup`, `force`, `message`, `echo`, `spinner`, `sh_ignore_exit`, `mode`, `verbose`, `from`, `eof_last`, `mirror`);
   - *Unterminated frontmatter block* / *Unterminated EJS tag* (error) — незакрытый блок frontmatter или EJS-тег;
   - *Mutually exclusive inject and replace* (error) — одновременное использование `inject` и `replace`;
   - *Anchor option without inject mode* (warning) — якорные опции (`before`, `after`, `prepend`, `append`, `at_line`) без режима `inject`;
@@ -34,7 +34,7 @@
    ```bash
    ./gradlew buildPlugin
    ```
-2. Артефакт появится в `build/distributions/idea-hygen-plugin-<версия>.zip` (текущая версия — `0.4.0`).
+2. Артефакт появится в `build/distributions/idea-hygen-plugin-<версия>.zip` (текущая версия — `0.5.0`).
 3. В IDE: **Settings → Plugins → ⚙ → Install Plugin from Disk…** и выберите zip.
    Альтернатива: распаковать zip и скопировать каталог плагина в папку плагинов IDE (`~/.local/share/JetBrains/IntelliJIdea<versia>/plugins` и т.п.).
 4. Перезапустите IDE.
@@ -94,4 +94,4 @@ after: // add-email-here
 ./gradlew runIde      # запуск IDE-песочницы с плагином
 ```
 
-Проект развивается по OpenSpec-процессу: спецификации возможностей лежат в `openspec/specs/` (язык шаблонов, валидация, определение языка-хозяина, инъекция EJS, автодополнение, контекст шаблона), итоги ручной и автоматической проверки — в `VERIFICATION.md`.
+Проект развивается по OpenSpec-процессу: спецификации возможностей лежат в `openspec/specs/` (язык шаблонов, валидация, определение языка-хозяина, резолвинг конфигурации, инъекция EJS, автодополнение, контекст шаблона), итоги ручной и автоматической проверки — в `VERIFICATION.md`.
