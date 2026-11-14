@@ -346,3 +346,43 @@ This is a **delta section** appended by the 0.5.0 build. The MVP / `ejs-context-
 - **Build** — `./gradlew buildPlugin` → **BUILD SUCCESSFUL**; artifact `build/distributions/idea-hygen-plugin-0.5.0.zip` (jar manifest `Version: 0.5.0`, `Build-Plugin-Version: 2.20.1`, `Platform-Version: 2025.3.2`, `Kotlin-Version: 2.2.20`).
 - **Install** — unpacked the zip over `~/.local/share/JetBrains/IntelliJIdea2025.2/plugins/idea-hygen-plugin/` exactly as prior versions (previous `lib/idea-hygen-plugin-0.4.0.jar` removed, replaced by `lib/idea-hygen-plugin-0.5.0.jar`; jar re-verified from the install dir to carry `Version: 0.5.0`). The running IDEA on `IU-253.30387.90` loads the plugin from this directory on restart — conditional on a restart to become active.
 - **Verification command** — `./gradlew test --console=plain` → **BUILD FAILED** only due to the single known environmental failure above; **211 tests passed, 0 errors, 0 skipped**.
+
+---
+
+# Verification — change `file-type-conflict-detector` (0.6.0)
+
+Verification run: **2026-11-14** · Command: `./gradlew buildPlugin` (test suite state as reported by task §3.3: 239 tests)
+This is a **delta section** appended by task §3.3. The MVP / `ejs-context-and-injection` / `fork-parity-inspections` / `combined-js-injection` sections above remain authoritative for their own changes; everything here covers the `file-type-conflict-detector` change (**file-type conflict detection + interactive resolution** — after each pattern sync the plugin detects hygen patterns shadowed by a foreign file type, reports one aggregated balloon, and offers per-type suppression or confirmed resolution).
+
+## A. What changed (0.6.0)
+
+- **Conflict detection** — after each association sync, every applied hygen pattern is re-resolved through the IDE file-type manager; any pattern that resolves to a non-hygen file type (e.g. the bundled *Env files* plugin pattern `.env.*` shadowing `.env.t`) is a conflict (`FileTypeConflictDetector`).
+- **Interactive reporting** — one aggregated balloon in the **"Hygen File Type Conflicts"** notification group lists all conflicts, with a per-type **"Don't show for \<type\>"** action (persisted in `hygenFileTypeConflicts.xml` across restarts) and a single **"Resolve…"** action. The same conflict set is only reported once per session.
+- **Interactive resolution** — **"Resolve…"** requires explicit user confirmation; it removes **only the exact conflicting pattern** from the shadowing file type and re-syncs the associations; patterns that cannot be removed fall back to step-by-step manual instructions (Settings → Editor → File Types).
+
+## B. Full-suite results — 239 tests, 1 known environmental failure
+
+| Result | Count | Notes |
+|---|---|---|
+| Passed | **238** | 0 errors, 0 skipped |
+| Failed | **1** | `HygenRealWorldTemplatesTest.testRealWorldTemplatesHaveZeroProblems` — **known pre-existing environmental failure**, not touched: the real corpus at `/www/biorate/core/packages/@biorate/hygen` carries uncommitted upstream frontmatter keys not in the plugin's `knownKeys` catalog (`glob`, `base`, `stripExtensions`, `skipIfExists`, `skip`, `transform`). Same cause and disposition as in the 0.5.0 section (§B above); unrelated to this change. |
+
+## C. Build & install (task §3.3)
+
+- **Version bump** — `build.gradle.kts` `version = "0.6.0"`.
+- **Build** — `./gradlew buildPlugin` → **BUILD SUCCESSFUL**; artifact `build/distributions/idea-hygen-plugin-0.6.0.zip` (jar manifest `Version: 0.6.0`, `Build-Plugin-Version: 2.20.1`, `Platform-Version: 2025.3.2`, `Kotlin-Version: 2.2.20`).
+- **Install** — unpacked the zip over `~/.local/share/JetBrains/IntelliJIdea2025.2/plugins/idea-hygen-plugin/` exactly as prior versions (previous `lib/idea-hygen-plugin-0.5.0.jar` removed, replaced by `lib/idea-hygen-plugin-0.6.0.jar`; jar re-verified from the install dir to carry `Version: 0.6.0`, and its `plugin.xml` registers the `Hygen File Type Conflicts` notification group). The running IDEA on `IU-253.30387.90` loads the plugin from this directory on restart — conditional on a restart to become active.
+- **Docs** — README.md / README.ru.md: added a mirrored "Conflicting file types" note (conflict detection, suppress vs resolve, manual path via Settings → Editor → File Types); installation version reference bumped to 0.6.0.
+
+## D. MANUAL CHECKLIST (sandbox IDEA — dotenv/Env-files plugin installed)
+
+Open the plugin project with the bundled *Env files* plugin enabled (its pattern `.env.*` shadows hygen pattern `.env.t`).
+
+| # | Check | Expected |
+|---|---|---|
+| a | Restart IDEA with the dotenv plugin installed | The **"Hygen File Type Conflicts"** balloon appears (once per session), listing `.env.*` claimed by the *Env files* type. |
+| b | Click **"Resolve…"** in the balloon | After confirmation, **only the `.env.*` pattern** is removed from the *Env files* file type (its other patterns untouched) and the associations re-sync — `.env.t` becomes a Hygen Template; no other Env-file behavior breaks. |
+| c | Open a `.env.t` template | It gets **hygen highlighting** (frontmatter + EJS), not the Env-files rendering. |
+| d | Click **"Don't show for \<Env files type\>"**, restart IDEA | The balloon **does not reappear** after the restart (suppression persisted in `hygenFileTypeConflicts.xml`). |
+
+> If a check above fails, record the observed behavior and return it; the failing scenario needs a fix before the change is archived.

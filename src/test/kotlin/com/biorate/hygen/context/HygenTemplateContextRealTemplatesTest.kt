@@ -12,9 +12,9 @@ import java.io.File
 /**
  * Context-resolution sanity sweep (task 4.1): [HygenTemplateContext.visibleAt] must never throw and
  * must always return a non-empty context (the engine defaults at minimum) on real-world
- * `application-template` templates.
+ * `application-template` templates (the full `*.t` corpus).
  *
- * A sample of the real `.ejs.t` corpus is parsed through [PsiFileFactory.createFileFromText] — the
+ * The entire real `*.t` corpus is parsed through [PsiFileFactory.createFileFromText] — the
  * same deterministic harness the sibling corpus sweeps use — and [HygenTemplateContext.visibleAt]
  * is called at every EJS island offset. The in-memory harness deliberately resolves no config (an
  * in-memory file has no `VirtualFile`, so `actionDir` degrades to null), which is exactly the
@@ -39,11 +39,10 @@ class HygenTemplateContextRealTemplatesTest : BasePlatformTestCase() {
         assumeTrue("application-template corpus not present on disk; skipping context sweep", root.isDirectory)
 
         val templates = root.walkTopDown()
-            .filter { it.isFile && it.name.endsWith(".ejs.t") }
+            .filter { it.isFile && it.name.endsWith(".t") }
             .sortedBy { it.path }
-            .take(HANDFUL)
             .toList()
-        assertTrue("no real .ejs.t templates under ${root.path}", templates.isNotEmpty())
+        assertTrue("no real *.t templates under ${root.path}", templates.isNotEmpty())
 
         var probedIslands = 0
         for (template in templates) {
@@ -63,10 +62,6 @@ class HygenTemplateContextRealTemplatesTest : BasePlatformTestCase() {
             }
             probedIslands += islands.size
         }
-        assertTrue("no EJS islands probed in the sampled corpus", probedIslands > 0)
-    }
-
-    private companion object {
-        const val HANDFUL = 12
+        assertTrue("no EJS islands probed in the corpus", probedIslands > 0)
     }
 }

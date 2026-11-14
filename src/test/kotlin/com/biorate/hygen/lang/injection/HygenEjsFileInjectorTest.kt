@@ -176,7 +176,7 @@ class HygenEjsFileInjectorTest : BasePlatformTestCase() {
     // ---- corpus overlap sweep ----
 
     /**
-     * Integration check: across every real-world `.ejs.t` template, the ranges the body injector
+     * Integration check: across every real-world `*.t` template, the ranges the body injector
      * registers and the ranges the file EJS injector registers never overlap. The body injector only
      * touches [HygenBody] plain-text runs and the file injector only the code region of EJS islands,
      * so overlap would signal a host/range bug (e.g. an island leaking into a body range).
@@ -187,10 +187,10 @@ class HygenEjsFileInjectorTest : BasePlatformTestCase() {
         val root = File("/www/biorate/application-template/_templates")
         assumeTrue("corpus not present on disk; skipping overlap sweep", root.isDirectory)
         val templates = root.walkTopDown()
-            .filter { it.isFile && it.name.endsWith(".ejs.t") }
+            .filter { it.isFile && it.name.endsWith(".t") }
             .sortedBy { it.path }
             .toList()
-        assertTrue("no .ejs.t templates under ${root.path}", templates.isNotEmpty())
+        assertTrue("no *.t templates under ${root.path}", templates.isNotEmpty())
 
         for (template in templates) {
             val file = PsiFileFactory.getInstance(project)
