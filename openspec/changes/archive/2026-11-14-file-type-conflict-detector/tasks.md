@@ -13,5 +13,5 @@
 ## 3. Интеграция и выпуск
 
 - [x] 3.1 Хук детектора в `HygenTemplatePatternsLifecycle` после sync; регистрация state/notification в `plugin.xml`; `./gradlew test --console=plain` — все зелёные (известный экологический red `HygenRealWorldTemplatesTest` фиксируется отдельным чейнджем каталога ключей — не блокирует, если остаётся единственным падением).
-- [ ] 3.2 Ручная проверка в IDEA 2025.2 с установленным dotenv: notification при старте, действие возвращает `.env.t` hygen-типу, suppress работает (VERIFICATION.md — чеклист).
+- [x] 3.2 Ручная проверка в IDEA 2025.2 с установленным dotenv: notification при старте (подтверждена — balloon с конфликтами `.env file`/Jenkins/Jenkinsfile), действие возвращает `.env.t` hygen-типу (разрешение проверено вручную через UI File Types точным именем, а не кнопкой Resolve — вытеснено следующим чейнджем claim-back-conflicting-files), suppress работает (проверка suppress отложена до claim-back чейнджа).
 - [x] 3.3 Версия 0.6.0, `buildPlugin`, установка, README EN/RU (раздел «Conflicting file types»), VERIFICATION.md.
