@@ -8,9 +8,10 @@ import org.jetbrains.jps.model.fileTypes.FileNameMatcherFactory
 
 /**
  * Verifies the file-type classification (spec requirement "Hook files are not templates"):
- * the [HygenFileTypeOverrider] must leave the hook files `prompt.js`/`index.js`/`prompt.ts`/
- * `index.ts` as ordinary JS/TS files (no template parsing), while still claiming non-hook
- * files under a `_templates` directory as hygen templates.
+ * the [HygenFileTypeOverrider] must leave the engine hook files (`hooks.*`, `prompt.*`,
+ * `index.*` — the engine's render `ignores` set) as ordinary JS/TS files (no template
+ * parsing), while still claiming non-hook files under a `_templates` directory as hygen
+ * templates.
  */
 class HygenFileTypeOverriderTest : BasePlatformTestCase() {
 
@@ -24,6 +25,24 @@ class HygenFileTypeOverriderTest : BasePlatformTestCase() {
             assertTrue("fixture path missing _templates: ${vf.path}", vf.path.contains("/_templates/"))
             assertNull("hook file $name must not become a hygen template", overrider.getOverriddenFileType(vf))
         }
+    }
+
+    // Regression for hooks-filetype-overrider-parity: the engine's render `ignores` also covers
+    // `hooks.ts|js|mjs|cjs` (upstream 96eadd896); the overrider previously hijacked `hooks.ts`,
+    // which broke the IDE's TypeScript service for it.
+    fun testEngineHookNamesAreNotClaimedAsTemplates() {
+        val overrider = HygenFileTypeOverrider()
+        for (name in listOf("hooks.ts", "hooks.js", "hooks.mjs", "hooks.cjs")) {
+            val vf = add("_templates/create/root/$name")
+            assertTrue("fixture path missing _templates: ${vf.path}", vf.path.contains("/_templates/"))
+            assertNull("engine hook file $name must not become a hygen template", overrider.getOverriddenFileType(vf))
+        }
+    }
+
+    fun testHookFilesOutsideTemplatesAreUnaffected() {
+        val overrider = HygenFileTypeOverrider()
+        val vf = add("src/hooks.ts")
+        assertNull("hooks.ts outside _templates must not be touched by the overrider", overrider.getOverriddenFileType(vf))
     }
 
     fun testNonHookTemplateUnderTemplatesIsClaimed() {

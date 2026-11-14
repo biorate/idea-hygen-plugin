@@ -34,7 +34,7 @@ An IntelliJ IDEA plugin for the **@biorate/hygen** code generator's templates: s
    ```bash
    ./gradlew buildPlugin
    ```
-2. The artifact appears in `build/distributions/idea-hygen-plugin-<version>.zip` (current version — `0.7.0`).
+2. The artifact appears in `build/distributions/idea-hygen-plugin-<version>.zip` (current version — `0.7.1`).
 3. In the IDE: **Settings → Plugins → ⚙ → Install Plugin from Disk…** and pick the zip.
    Alternative: unpack the zip and copy the plugin directory into the IDE's plugins folder (`~/.local/share/JetBrains/IntelliJIdea<version>/plugins` etc.).
 4. Restart the IDE.

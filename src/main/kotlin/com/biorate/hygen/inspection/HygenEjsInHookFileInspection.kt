@@ -11,7 +11,8 @@ import com.intellij.psi.PsiFile
 /**
  * Warns when EJS tag syntax appears in a hygen hook file (spec: EJS syntax in hook files).
  *
- * Hook files (`prompt.js`, `index.js`, `prompt.ts`, `index.ts`) inside an action folder of a
+ * Hook files (`hooks.ts|js|mjs|cjs`, `prompt.js|ts`, `index.js|ts` — the engine's render
+ * `ignores` set) inside an action folder of a
  * `_templates` tree are executed as JavaScript and are *not* rendered by the engine, so a
  * `<% ... %>` tag pasted into one is never interpolated. The check is a plain-text scan over the
  * file, so it keeps working on the JS/TS file the overrider deliberately leaves as a hook (per

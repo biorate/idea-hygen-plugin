@@ -34,7 +34,7 @@
    ```bash
    ./gradlew buildPlugin
    ```
-2. Артефакт появится в `build/distributions/idea-hygen-plugin-<версия>.zip` (текущая версия — `0.7.0`).
+2. Артефакт появится в `build/distributions/idea-hygen-plugin-<версия>.zip` (текущая версия — `0.7.1`).
 3. В IDE: **Settings → Plugins → ⚙ → Install Plugin from Disk…** и выберите zip.
    Альтернатива: распаковать zip и скопировать каталог плагина в папку плагинов IDE (`~/.local/share/JetBrains/IntelliJIdea<versia>/plugins` и т.п.).
 4. Перезапустите IDE.
