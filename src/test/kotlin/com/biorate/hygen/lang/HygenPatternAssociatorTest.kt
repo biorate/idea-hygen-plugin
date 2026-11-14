@@ -87,6 +87,15 @@ class HygenPatternAssociatorTest {
     }
 
     @Test
+    fun `exact-name associations claimed by the claim flow survive a wildcard sync`() {
+        val gateway = FakeGateway(seed = setOf("*.t", ".env.t"))
+        HygenPatternAssociator(gateway).sync(listOf("*.t"))
+
+        assertTrue("no remove expected; exact associations are claim-managed", gateway.callLog.isEmpty())
+        assertTrue("exact association must survive", ".env.t" in gateway.currentPatterns())
+    }
+
+    @Test
     fun `no-op sync on identical configuration`() {
         val gateway = FakeGateway(seed = setOf("*.ejs.t"))
         HygenPatternAssociator(gateway).sync(listOf("*.ejs.t"))

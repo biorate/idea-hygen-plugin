@@ -11,7 +11,7 @@ import org.jetbrains.jps.model.fileTypes.FileNameMatcherFactory
  */
 interface HygenAssociationGateway {
 
-    /** Wildcard patterns currently associated with [HygenFileType], e.g. `*.t`. */
+    /** Patterns currently associated with [HygenFileType] (wildcards like `*.t`, plus any exact-name associations from the claim flow). */
     fun currentPatterns(): Set<String>
 
     /** Associates [pattern] (wildcard form) with [HygenFileType]. */

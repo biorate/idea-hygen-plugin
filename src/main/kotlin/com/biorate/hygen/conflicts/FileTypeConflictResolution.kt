@@ -1,13 +1,17 @@
 package com.biorate.hygen.conflicts
 
+import com.intellij.openapi.diagnostic.Logger
+
 /**
  * Seam over the IDE notification UI (tasks §2.1): shows one aggregated balloon listing all
  * [conflicts]. The callbacks are the user's explicit choices from the balloon:
  *  - [onSuppress] — "Don't show for <type>" was activated for a foreign file type name;
  *  - [onResolve] — the user explicitly confirmed a resolution attempt for the given conflicts
- *    (tier 1 never runs without this confirmation).
+ *    (tier 1 never runs without this confirmation);
+ *  - [onClaimBack] — the user explicitly confirmed claiming back the given exact file names
+ *    (tasks §3.1; never runs without the confirmation-dialog confirmation).
  *
- * Implementations must never invoke either callback on their own.
+ * Implementations must never invoke any callback on their own.
  */
 fun interface ConflictReporter {
 
@@ -15,7 +19,53 @@ fun interface ConflictReporter {
         conflicts: List<FileTypeConflict>,
         onSuppress: (String) -> Unit,
         onResolve: (List<FileTypeConflict>) -> Unit,
+        onClaimBack: (List<String>) -> Unit,
     )
+}
+
+/**
+ * Seam over the claim-back confirmation UI (tasks §3.1): shows the [fileNames] with checkboxes
+ * for the user to pick from.
+ *
+ * @return the names the user confirmed, or `null` when the dialog was cancelled or the UI is
+ *         unavailable — never an implicit "everything".
+ */
+fun interface ClaimSelectionShower {
+
+    fun show(fileNames: List<String>): List<String>?
+}
+
+/**
+ * Claim-back flow (tasks §3.1, design D5): claims the user-confirmed exact file names through
+ * the [FileTypeClaims] store and, when at least one was newly claimed, re-runs the association
+ * sync through the existing lifecycle so the fix takes effect immediately.
+ */
+class FileTypeClaimBacker(
+    private val claims: FileTypeClaims,
+    private val resync: () -> Unit,
+) {
+
+    fun claimBack(fileNames: Collection<String>) {
+        if (fileNames.isEmpty()) return
+        var claimedAny = false
+        val claimed = mutableListOf<String>()
+        for (name in fileNames) {
+            val added = runCatching { claims.claim(name) }.getOrDefault(false)
+            if (added) claimed += name
+            claimedAny = added || claimedAny
+        }
+        LOG.info(
+            "Hygen diagnostics: claim-back done: claimed ${claimed.size} name(s) $claimed; " +
+                "resync scheduled=$claimedAny",
+        )
+        if (claimedAny) {
+            runCatching { resync() }
+        }
+    }
+
+    private companion object {
+        private val LOG = Logger.getInstance(FileTypeClaimBacker::class.java)
+    }
 }
 
 /**
@@ -85,6 +135,7 @@ class FileTypeConflictController(
     private val suppression: ConflictSuppression,
     private val reporter: ConflictReporter,
     private val resolver: FileTypeConflictResolver,
+    private val claimBacker: FileTypeClaimBacker? = null,
 ) {
 
     fun run(patterns: Collection<String>) {
@@ -94,6 +145,7 @@ class FileTypeConflictController(
             conflicts,
             onSuppress = { fileTypeName -> runCatching { suppression.suppress(fileTypeName) } },
             onResolve = { confirmed -> runCatching { resolver.resolve(confirmed) } },
+            onClaimBack = { names -> runCatching { claimBacker?.claimBack(names) } },
         )
     }
 }

@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.biorate"
-version = "0.6.0"
+version = "0.7.0"
 
 val ideaHome = "/home/llevkin/bin/idea-IU-253.30387.90"
 

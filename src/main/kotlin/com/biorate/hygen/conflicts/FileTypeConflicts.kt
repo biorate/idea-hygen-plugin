@@ -14,6 +14,12 @@ data class FileTypeConflict(
     val pattern: String,
     val shadowingFileTypeName: String,
     val representativeFileName: String,
+    /**
+     * Exact names of REAL project files (tasks §2.1) matching both [pattern] and the shadowing
+     * type's pattern — the names the "Claim back" action can claim. Empty when no real files were
+     * found (or the lookup was unavailable): claim-back is then not offered.
+     */
+    val conflictingFileNames: List<String> = emptyList(),
 )
 
 /**

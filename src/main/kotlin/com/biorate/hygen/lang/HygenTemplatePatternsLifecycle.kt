@@ -1,6 +1,9 @@
 package com.biorate.hygen.lang
 
 import com.biorate.hygen.conflicts.BalloonConflictReporter
+import com.biorate.hygen.conflicts.FileTypeClaimBacker
+import com.biorate.hygen.conflicts.FileTypeClaimCleaner
+import com.biorate.hygen.conflicts.FileTypeClaimManager
 import com.biorate.hygen.conflicts.FileTypeConflict
 import com.biorate.hygen.conflicts.FileTypeConflictController
 import com.biorate.hygen.conflicts.FileTypeConflictDetector
@@ -9,12 +12,15 @@ import com.biorate.hygen.conflicts.HygenFileTypeConflictSettings
 import com.biorate.hygen.conflicts.ConflictReporter
 import com.biorate.hygen.conflicts.NotificationManualInstructionsShower
 import com.biorate.hygen.conflicts.PlatformFileTypeManagerSeam
+import com.biorate.hygen.conflicts.ProjectConflictFileScanner
 import com.biorate.hygen.settings.HygenTemplateSettings
 import com.biorate.hygen.settings.HygenTemplateSettingsChangeListener
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.ide.ApplicationInitializedListener
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.util.messages.MessageBusConnection
+import java.util.concurrent.ExecutorService
 
 /**
  * Applies the configured hygen template patterns as dynamic [FileTypeManager] associations at IDE
@@ -47,6 +53,22 @@ class HygenTemplatePatternsLifecycle : ApplicationInitializedListener {
         )
     }
 
+    companion object {
+
+        /**
+         * Single-threaded pool for the off-EDT conflict detection: one detection run at a time,
+         * so rapid settings changes cannot pile up concurrent VFS walks.
+         */
+        private val DETECTION_EXECUTOR: ExecutorService =
+            AppExecutorUtil.createBoundedApplicationPoolExecutor("Hygen conflict detection", 1)
+
+        /**
+         * The sync entry point for callers without a lifecycle instance (the project-open
+         * resync activity); a fresh instance is stateless for this operation, so this is safe.
+         */
+        internal fun resyncNow() = HygenTemplatePatternsLifecycle().syncFromSettings()
+    }
+
     internal fun syncFromSettings() {
         LOG.info("Hygen diagnostics: patterns sync: ${runCatching { HygenTemplateSettings.getInstance().patterns }.getOrElse { "<unavailable: $it>" }}")
         val gateway = FileTypeManagerAssociationGateway.fromFileTypeManager() ?: return
@@ -70,8 +92,25 @@ class HygenTemplatePatternsLifecycle : ApplicationInitializedListener {
             LOG.warn("Hygen diagnostics: detectAndReportConflicts: no suppression settings")
             return
         }
+        // Claim cleanup before detection (tasks §2.2): release claims whose file is gone, whose
+        // pattern was removed, or whose exact association no longer resolves to our type.
+        val claims = runCatching { FileTypeClaimManager.getInstance() }.getOrNull()
+        val scanner = runCatching { ProjectConflictFileScanner() }.getOrNull()
+        if (claims != null) {
+            val released = runCatching {
+                FileTypeClaimCleaner(claims, probe = seam).cleanup(patterns) { name ->
+                    scanner?.exists(name) ?: true
+                }
+            }.getOrDefault(emptyList())
+            LOG.info("Hygen diagnostics: claim cleanup released ${released.size} claim(s) at sync: $released")
+        }
         val controller = FileTypeConflictController(
-            detector = FileTypeConflictDetector(seam, suppression, foreignPatterns = seam),
+            detector = FileTypeConflictDetector(
+                seam,
+                suppression,
+                foreignPatterns = seam,
+                realFiles = scanner,
+            ),
             suppression = suppression,
             reporter = LoggingBalloonConflictReporter(BalloonConflictReporter()),
             resolver = FileTypeConflictResolver(
@@ -83,8 +122,17 @@ class HygenTemplatePatternsLifecycle : ApplicationInitializedListener {
                 resync = { syncFromSettings() },
                 instructions = NotificationManualInstructionsShower(),
             ),
+            claimBacker = claims?.let { FileTypeClaimBacker(it, resync = { syncFromSettings() }) },
         )
-        controller.run(patterns)
+        // The detector's real-file enrichment walks the project VFS — even a bounded,
+        // pruned walk must never run on the EDT. Detection therefore runs on a single-threaded
+        // application pool executor (serialized across syncs); the balloon reporter hops back
+        // to the EDT via invokeLater on its own. A signature change re-notifies at most once
+        // more per session (reporter dedup), which is acceptable.
+        DETECTION_EXECUTOR.execute {
+            runCatching { controller.run(patterns) }
+                .onFailure { LOG.warn("Hygen diagnostics: conflict detection failed: $it") }
+        }
     }
 
     /**
@@ -100,6 +148,7 @@ class HygenTemplatePatternsLifecycle : ApplicationInitializedListener {
             conflicts: List<FileTypeConflict>,
             onSuppress: (String) -> Unit,
             onResolve: (List<FileTypeConflict>) -> Unit,
+            onClaimBack: (List<String>) -> Unit,
         ) {
             if (conflicts.isEmpty()) {
                 log.info("Hygen diagnostics: detector result: no conflicts detected")
@@ -109,7 +158,7 @@ class HygenTemplatePatternsLifecycle : ApplicationInitializedListener {
                         conflicts.joinToString("; ") { it.pattern + " -> " + it.shadowingFileTypeName },
                 )
             }
-            delegate.report(conflicts, onSuppress, onResolve)
+            delegate.report(conflicts, onSuppress, onResolve, onClaimBack)
         }
     }
 }

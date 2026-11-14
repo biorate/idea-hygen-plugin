@@ -3,20 +3,20 @@
 ## 1. Спайк и фундамент claim-менеджера
 
 - [ ] 1.1 Спайк: подтвердить в реальной IDEA 2025.2 приоритет exact-имени над чужим glob (уже эмпирически подтверждено пользователем — зафиксировать наблюдение) и поведение при конкурирующих exact-именах (наблюдение задокументировать в VERIFICATION.md, гарантии не давать). Проверить, что `associatePattern` с точным именем (без `*`) корректно регистрируется и виден в `getAssociations`.
-- [ ] 1.2 `FileTypeClaimManager`: persistent state (application-level, стиль `HygenFileTypeConflictSettings`), API `claim(name)` / `release(name)` / `claimed()`; снимается только через публичный `removeAssociation`; никогда не трогает чужие exact-имена. Тесты на state и lifecycle (add/remove/persist-форма).
+- [x] 1.2 `FileTypeClaimManager`: persistent state (application-level, стиль `HygenFileTypeConflictSettings`), API `claim(name)` / `release(name)` / `claimed()`; снимается только через публичный `removeAssociation`; никогда не трогает чужие exact-имена. Тесты на state и lifecycle (add/remove/persist-форма).
 
 ## 2. Поиск конфликтных файлов и детекция с учётом claim'ов
 
-- [ ] 2.1 Поиск реальных файлов под пересечением (наш паттерн × чужой паттерн) по content roots открытых проектов через `GlobMatcher`; кап на количество имён (20). Тесты: пересечение есть/нет, кап, файлы вне корней игнорируются.
-- [ ] 2.2 Интеграция claim'ов в детекцию: конфликт не репортится, если все реальные файлы пары уже резолвятся в наш тип; cleanup claim'ов на каждом sync (файл исчез или паттерн убран → release). Тесты на seam'ах.
+- [x] 2.1 Поиск реальных файлов под пересечением (наш паттерн × чужой паттерн) по content roots открытых проектов через `GlobMatcher`; кап на количество имён (20). Тесты: пересечение есть/нет, кап, файлы вне корней игнорируются.
+- [x] 2.2 Интеграция claim'ов в детекцию: конфликт не репортится, если все реальные файлы пары уже резолвятся в наш тип; cleanup claim'ов на каждом sync (файл исчез или паттерн убран → release). Тесты на seam'ах.
 
 ## 3. Notification и выбор действия
 
-- [ ] 3.1 Действие «Claim back N file(s)…» в балуне для конфликтов с существующими файлами: список с чекбоксами → подтверждение → claim → ре-sync; «Remove foreign pattern» (существующий Resolve) остаётся; suppress остаётся. Тесты контроллера: только подтверждённые имена, повторный показ подавлен для уже claim'нутых пар.
-- [ ] 3.2 Обновление suppression/спецификации репортера: конфликт, чьи файлы уже claim'нуты, не попадает в агрегированный balloon. Тесты.
+- [x] 3.1 Действие «Claim back N file(s)…» в балуне для конфликтов с существующими файлами: список с чекбоксами → подтверждение → claim → ре-sync; «Remove foreign pattern» (существующий Resolve) остаётся; suppress остаётся. Тесты контроллера: только подтверждённые имена, повторный показ подавлен для уже claim'нутых пар.
+- [x] 3.2 Обновление suppression/спецификации репортера: конфликт, чьи файлы уже claim'нуты, не попадает в агрегированный balloon. Тесты.
 
 ## 4. Интеграция и выпуск
 
-- [ ] 4.1 Хук claim-менеджера в `HygenTemplatePatternsLifecycle` (cleanup до детекции); регистрация state в `plugin.xml`; `./gradlew test --console=plain` — все зелёные (известное окружение-красное `HygenRealWorldTemplatesTest` не блокирует).
+- [x] 4.1 Хук claim-менеджера в `HygenTemplatePatternsLifecycle` (cleanup до детекции); регистрация state в `plugin.xml`; `./gradlew test --console=plain` — все зелёные (известное окружение-красное `HygenRealWorldTemplatesTest` не блокирует).
 - [ ] 4.2 Ручная проверка в IDEA 2025.2 с dotenv: (а) balloon предлагает «Claim back 1 file(s)…» для `.env.t`; (б) подтверждение → `.env.t` резолвится в hygen без правки чужих паттернов; (в) при рестарте claim сохраняется и конфликт не репортится; (г) при удалении `*.t` из настроек claim снимается. Чеклист в VERIFICATION.md.
-- [ ] 4.3 Версия 0.7.0, `buildPlugin`, установка, README EN/RU (обновить раздел «Conflicting file types»: claim-back как предпочтительный способ), VERIFICATION.md.
+- [x] 4.3 Версия 0.7.0, `buildPlugin`, установка, README EN/RU (обновить раздел «Conflicting file types»: claim-back как предпочтительный способ), VERIFICATION.md.

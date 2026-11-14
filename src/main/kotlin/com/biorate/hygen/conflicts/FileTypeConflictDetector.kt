@@ -80,6 +80,7 @@ class FileTypeConflictDetector(
     private val suppression: ConflictSuppression,
     private val foreignPatterns: ForeignPatterns = ForeignPatterns { emptyList() },
     private val ourFileTypeName: String = HygenFileType.name,
+    private val realFiles: ConflictFileFinder? = null,
 ) {
 
     /**
@@ -90,8 +91,11 @@ class FileTypeConflictDetector(
     fun detect(patterns: Collection<String>): List<FileTypeConflict> {
         val normalized = patterns.mapNotNull { HygenPatterns.normalize(it) }.distinct().sorted()
         val conflicts = linkedMapOf<Pair<String, String>, FileTypeConflict>()
+        // Intersections first (pattern-ordered), then the legacy probe per pattern — this keeps
+        // the historical output order, where a pattern's intersection records precede its
+        // own-representative record.
+        addIntersectionConflicts(conflicts, normalized)
         for (pattern in normalized) {
-            addConflicts(conflicts, pattern, intersectionConflicts(pattern))
             addConflicts(conflicts, pattern, ourRepresentativeConflicts(pattern))
         }
         return conflicts.values.toList()
@@ -103,19 +107,69 @@ class FileTypeConflictDetector(
         return conflictIfForeign(pattern, representative)
     }
 
-    /** Intersection probe: our [pattern] × every enumerated foreign pattern. */
-    private fun intersectionConflicts(pattern: String): List<FileTypeConflict> {
+    /**
+     * One pattern × foreign-pattern pair that probed as a real conflict and now needs the
+     * real-file enrichment (tasks §2.1) before it can be reported.
+     */
+    private data class IntersectionCandidate(
+        val pattern: String,
+        val foreignPattern: String,
+        val representative: String,
+        val winner: String,
+    )
+
+    /**
+     * Intersection probe: our [patterns] × every enumerated foreign pattern, in two phases so
+     * the real-file lookup runs exactly once for ALL pairs — a single project-tree walk instead
+     * of one per pair.
+     */
+    private fun addIntersectionConflicts(
+        into: LinkedHashMap<Pair<String, String>, FileTypeConflict>,
+        patterns: List<String>,
+    ) {
         val foreignTypes = runCatching { foreignPatterns.foreignTypes() }.getOrDefault(emptyList())
-        val conflicts = mutableListOf<FileTypeConflict>()
-        for (foreign in foreignTypes) {
-            if (foreign.name == ourFileTypeName) continue
-            for (foreignPattern in foreign.patterns) {
-                val representative =
-                    intersectionRepresentative(pattern, foreignPattern) ?: continue
-                conflicts += conflictIfForeign(pattern, representative)
+        val candidates = mutableListOf<IntersectionCandidate>()
+        for (pattern in patterns) {
+            for (foreign in foreignTypes) {
+                if (foreign.name == ourFileTypeName) continue
+                for (foreignPattern in foreign.patterns) {
+                    val representative =
+                        intersectionRepresentative(pattern, foreignPattern) ?: continue
+                    val winner = probe.getFileTypeByFileName(representative) ?: continue
+                    if (winner == ourFileTypeName || suppression.isSuppressed(winner)) continue
+                    candidates += IntersectionCandidate(pattern, foreignPattern, representative, winner)
+                }
             }
         }
-        return conflicts
+        if (candidates.isEmpty()) return
+        // Tasks §2.2: when every real conflicting file already resolves to the hygen type
+        // (claimed back via an exact-name association), the pair is not a conflict.
+        val realFiles = findRealFilesBatch(candidates.map { it.pattern to it.foreignPattern })
+        for (candidate in candidates) {
+            val files = realFiles[candidate.pattern to candidate.foreignPattern].orEmpty()
+            if (files.isNotEmpty() && files.all { resolvesToOurs(it) }) continue
+            // Only files NOT yet resolved to our type are worth claiming back.
+            val unclaimed = files.filterNot { resolvesToOurs(it) }
+            val conflict = FileTypeConflict(candidate.pattern, candidate.winner, candidate.representative, unclaimed)
+            into.putIfAbsent(conflict.pattern to conflict.shadowingFileTypeName, conflict)
+        }
+    }
+
+    /**
+     * Real project files (tasks §2.1) for every pattern pair in ONE batch lookup — distinct,
+     * sorted, capped per pair — or empty lists when the lookup is unavailable or fails (degrades
+     * to "no claim-back offer").
+     */
+    private fun findRealFilesBatch(pairs: List<Pair<String, String>>): Map<Pair<String, String>, List<String>> {
+        val finder = realFiles ?: return emptyMap()
+        return runCatching {
+            finder.findAll(pairs, ConflictFileFinder.MAX_FILES_PER_PAIR)
+        }.getOrElse { pairs.distinct().associateWith { emptyList() } }
+            .mapValues { (_, files) ->
+                files.distinct()
+                    .take(ConflictFileFinder.MAX_FILES_PER_PAIR)
+                    .sorted()
+            }
     }
 
     /**
@@ -128,6 +182,10 @@ class FileTypeConflictDetector(
         if (winner == ourFileTypeName || suppression.isSuppressed(winner)) return emptyList()
         return listOf(FileTypeConflict(pattern, winner, representative))
     }
+
+    /** @return whether [fileName] resolves to the hygen type through the platform probe. */
+    private fun resolvesToOurs(fileName: String): Boolean =
+        probe.getFileTypeByFileName(fileName) == ourFileTypeName
 
     private fun addConflicts(
         into: LinkedHashMap<Pair<String, String>, FileTypeConflict>,

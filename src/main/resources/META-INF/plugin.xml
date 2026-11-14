@@ -29,9 +29,16 @@
         <!-- Applies the configured template patterns as dynamic file-type associations on startup
              and re-applies them on every settings change (design D1/D5). -->
         <applicationInitializedListener implementation="com.biorate.hygen.lang.HygenTemplatePatternsLifecycle"/>
+        <!-- Re-runs conflict detection when a project opens: the startup detection runs before any
+             project exists, so the real-file scanner (and with it the "Claim back" action) only
+             becomes effective once content roots are available (claim-back-conflicting-files). -->
+        <postStartupActivity implementation="com.biorate.hygen.lang.HygenProjectOpenResyncActivity"/>
         <!-- Persistent suppression memory for file-type conflicts ("Don't show for <type>",
              application-level, next to HygenTemplateSettings). -->
         <applicationService serviceImplementation="com.biorate.hygen.conflicts.HygenFileTypeConflictSettings"/>
+        <!-- Persistent memory of claimed-back exact file names (e.g. .env.t), application-level,
+             next to HygenFileTypeConflictSettings. -->
+        <applicationService serviceImplementation="com.biorate.hygen.conflicts.FileTypeClaimManager"/>
         <!-- One aggregated balloon for template patterns shadowed by foreign file types
              (e.g. the bundled dotenv plugin claiming .env.t via .env.*), with suppress and
              resolution actions. -->

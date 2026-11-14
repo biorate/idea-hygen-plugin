@@ -386,3 +386,46 @@ Open the plugin project with the bundled *Env files* plugin enabled (its pattern
 | d | Click **"Don't show for \<Env files type\>"**, restart IDEA | The balloon **does not reappear** after the restart (suppression persisted in `hygenFileTypeConflicts.xml`). |
 
 > If a check above fails, record the observed behavior and return it; the failing scenario needs a fix before the change is archived.
+
+---
+
+# Verification — change `claim-back-conflicting-files` (0.7.0)
+
+Verification run: **2026-11-14** · Command: `./gradlew buildPlugin` (test suite state as reported by the task: 290 tests)
+This is a **delta section** appended by task §4.3. The previous sections above remain authoritative for their own changes; everything here covers the `claim-back-conflicting-files` change (**claim-back via exact file names + claim lifecycle** — the plugin now finds real project files caught in the intersection of a hygen template pattern and a foreign file type's pattern and offers to add their exact file names to the hygen template type, so exact names beat foreign globs while foreign patterns stay untouched).
+
+## A. What changed (0.7.0)
+
+- **Claim-back via exact file names (primary resolution)** — when a hygen pattern is shadowed by a foreign file type, the plugin scans the project for real files matching the intersection of both patterns and offers **"Claim back N file(s)…"** in the **"Hygen File Type Conflicts"** balloon. Accepting adds the **exact file names** of those files to the hygen template type — exact names take precedence over the foreign type's globs, so the claimed files resolve to hygen again and the foreign file type's patterns are left untouched.
+- **"Remove foreign pattern" as alternative** — the previously existing resolution (remove only the exact conflicting pattern from the shadowing file type after explicit confirmation, falling back to manual instructions when the pattern cannot be removed) remains available as an alternative action.
+- **Claim lifecycle** — claims persist across IDE restarts (persisted alongside the association state) and are released automatically when the hygen pattern is removed from the plugin settings or the claimed file disappears from the project; a released claim leaves no residue in the file-type configuration.
+
+## B. Full-suite results — 290 tests, 1 known environmental failure
+
+| Result | Count | Notes |
+|---|---|---|
+| Passed | **289** | 0 errors, 0 skipped |
+| Failed | **1** | `HygenRealWorldTemplatesTest.testRealWorldTemplatesHaveZeroProblems` — **known pre-existing environmental failure**, not touched: the real corpus at `/www/biorate/core/packages/@biorate/hygen` carries uncommitted upstream frontmatter keys not in the plugin's `knownKeys` catalog. Same cause and disposition as in the 0.6.0 / 0.5.0 sections above; unrelated to this change. |
+
+## C. Build & install (task §4.3)
+
+- **Version bump** — `build.gradle.kts` `version = "0.7.0"`.
+- **Build** — `./gradlew buildPlugin` → **BUILD SUCCESSFUL**; artifact `build/distributions/idea-hygen-plugin-0.7.0.zip` (jar manifest `Version: 0.7.0`, `Build-Plugin-Version: 2.20.1`, `Platform-Version: 2025.3.2`, `Kotlin-Version: 2.2.20`).
+- **Install** — copied `lib/idea-hygen-plugin-0.7.0.jar` from the zip to `~/.local/share/JetBrains/IntelliJIdea2025.2/plugins/idea-hygen-plugin/lib/`, removed the previous `idea-hygen-plugin-0.6.0.jar` (only the 0.7.0 jar remains in `lib/`; the installed jar re-verified to carry `Version: 0.7.0`). The running IDEA on `IU-253.30387.90` loads the plugin from this directory on restart — conditional on a restart to become active.
+- **Docs** — README.md / README.ru.md: the mirrored "Conflicting file types" section now describes claim-back as the primary resolution (real files at the pattern intersection, exact names beat foreign globs, foreign patterns untouched), with "Remove foreign pattern" as an alternative and the claim lifecycle (persist across restarts, released when the pattern is removed or the file disappears); installation version reference bumped to 0.7.0.
+
+## D. MANUAL CHECKLIST (sandbox IDEA — dotenv/Env-files plugin installed)
+
+Open the plugin project with the bundled *Env files* plugin enabled (its pattern `.env.*` shadows hygen pattern `.env.t`).
+
+> **Note on check (a):** the user already added `.env.t` manually via Settings during the 0.6.0 check. If the conflict is **no longer reported** because the file already resolves to hygen, that itself verifies detection-with-claims. To see the full flow, remove the manual `.env.t` entry from **Settings → Editor → File Types → @biorate/hygen Template** first.
+
+| # | Check | Expected |
+|---|---|---|
+| a | Restart IDEA with the dotenv plugin installed | The **"Hygen File Type Conflicts"** balloon appears (once per session), offering **"Claim back 1 file(s)…"** for `.env.t`. (If the manual `.env.t` entry was not removed, no conflict is reported — see the note above; that also verifies detection-with-claims.) |
+| b | Confirm the claim-back action | `.env.t` resolves to the hygen template type again; the *Env files* patterns (including `.env.*`) are **untouched** — no pattern was removed from the foreign type. |
+| c | Restart IDEA | The claim **persists** — `.env.t` still resolves to hygen, and the conflict is **not re-reported** in the balloon. |
+| d | Remove the `*.t` pattern in the plugin settings, then check Settings → Editor → File Types | The claim is **released** — the exact `.env.t` name is gone from the @biorate/hygen Template type (no residue), and the file, if still matching the foreign pattern, resolves back per the foreign type's globs. |
+| e | Restore the settings (re-add the `*.t` pattern in the plugin settings; re-add the manual `.env.t` entry if it was removed before check (a)) | The plugin returns to its pre-check state and the associations re-sync cleanly. |
+
+> If a check above fails, record the observed behavior and return it; the failing scenario needs a fix before the change is archived.

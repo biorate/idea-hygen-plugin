@@ -143,15 +143,18 @@ class FileTypeConflictControllerTest {
         var reported: List<FileTypeConflict>? = null
         var suppressCallback: ((String) -> Unit)? = null
         var resolveCallback: ((List<FileTypeConflict>) -> Unit)? = null
+        var claimBackCallback: ((List<String>) -> Unit)? = null
 
         override fun report(
             conflicts: List<FileTypeConflict>,
             onSuppress: (String) -> Unit,
             onResolve: (List<FileTypeConflict>) -> Unit,
+            onClaimBack: (List<String>) -> Unit,
         ) {
             reported = conflicts
             suppressCallback = onSuppress
             resolveCallback = onResolve
+            claimBackCallback = onClaimBack
         }
     }
 

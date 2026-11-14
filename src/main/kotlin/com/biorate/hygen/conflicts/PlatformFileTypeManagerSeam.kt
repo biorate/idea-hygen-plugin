@@ -14,7 +14,7 @@ import org.jetbrains.jps.model.fileTypes.FileNameMatcherFactory
  */
 class PlatformFileTypeManagerSeam internal constructor(
     private val fileTypes: FileTypeManager,
-) : FileTypeProbe, ForeignPatterns, ShadowingPatternRemover {
+) : FileTypeProbe, ForeignPatterns, ShadowingPatternRemover, ExactFileNameAssociations {
 
     override fun getFileTypeByFileName(fileName: String): String? = runCatching {
         fileTypes.getFileTypeByFileName(fileName).name
@@ -79,6 +79,38 @@ class PlatformFileTypeManagerSeam internal constructor(
                 )
             }
             true
+        }.getOrDefault(false)
+    }
+
+    override fun associateExact(name: String): Boolean {
+        if (FileTypeClaimManager.canonical(name) == null) return false
+        val application = ApplicationManager.getApplication() ?: return false
+        val hygen = runCatching { fileTypes.findFileTypeByName(HygenFileType.name) }.getOrNull()
+            ?: return false
+        return runCatching {
+            application.runWriteAction<Boolean> {
+                fileTypes.associatePattern(hygen, name.trim())
+                true
+            }
+        }.getOrDefault(false)
+    }
+
+    override fun removeExact(name: String): Boolean {
+        if (FileTypeClaimManager.canonical(name) == null) return false
+        val application = ApplicationManager.getApplication() ?: return false
+        val hygen = runCatching { fileTypes.findFileTypeByName(HygenFileType.name) }.getOrNull()
+            ?: return false
+        return runCatching {
+            application.runWriteAction<Boolean> {
+                val matcher = FileNameMatcherFactory.getInstance().createMatcher(name.trim())
+                // Only remove when the association is actually ours to remove.
+                if (fileTypes.getAssociations(hygen).none { it.presentableString == matcher.presentableString }) {
+                    false
+                } else {
+                    fileTypes.removeAssociation(hygen, matcher)
+                    true
+                }
+            }
         }.getOrDefault(false)
     }
 

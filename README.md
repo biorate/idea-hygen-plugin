@@ -34,7 +34,7 @@ An IntelliJ IDEA plugin for the **@biorate/hygen** code generator's templates: s
    ```bash
    ./gradlew buildPlugin
    ```
-2. The artifact appears in `build/distributions/idea-hygen-plugin-<version>.zip` (current version — `0.6.0`).
+2. The artifact appears in `build/distributions/idea-hygen-plugin-<version>.zip` (current version — `0.7.0`).
 3. In the IDE: **Settings → Plugins → ⚙ → Install Plugin from Disk…** and pick the zip.
    Alternative: unpack the zip and copy the plugin directory into the IDE's plugins folder (`~/.local/share/JetBrains/IntelliJIdea<version>/plugins` etc.).
 4. Restart the IDE.
@@ -48,7 +48,7 @@ An IntelliJ IDEA plugin for the **@biorate/hygen** code generator's templates: s
   - `*.ejs.t`,
   - `*.tmpl`,
   - plus any custom patterns. Input is validated; changes apply immediately, without restarting the IDE.
-- **Conflicting file types** — if another file type claims the same filename patterns as your hygen template patterns (for example, the bundled *Env files* plugin with the pattern `.env.*` shadowing a `.env.t` template pattern), the plugin shows a **"Hygen File Type Conflicts"** notification listing each conflicting pattern and the file type that shadows it. From the notification you can either **"Don't show for \<file type\>"** (suppress the warning for that type; persisted across restarts) or **"Resolve…"** — after your explicit confirmation the plugin removes only the conflicting pattern from the other file type and re-syncs the associations; patterns that could not be removed automatically fall back to step-by-step manual instructions. The same conflict can always be resolved by hand via **Settings → Editor → File Types → \<the conflicting type\> → File name patterns**.
+- **Conflicting file types** — if another file type claims the same filename patterns as your hygen template patterns (for example, the bundled *Env files* plugin with the pattern `.env.*` shadowing a `.env.t` template pattern), the plugin detects it and offers to **claim back your real files**: it finds actual project files caught in the intersection of a hygen template pattern and a foreign file type's pattern and offers to add their **exact file names** to the hygen template type. Exact names take precedence over the foreign type's globs, so your files resolve to hygen again while the foreign file type's patterns stay untouched. "Remove foreign pattern" (removing only the exact conflicting pattern from the other file type after your explicit confirmation) remains available as an alternative. Claims persist across restarts and are released automatically when the hygen pattern is removed or the claimed file disappears. The same conflict can always be resolved by hand via **Settings → Editor → File Types → \<the conflicting type\> → File name patterns**.
 - Files inside `_templates/**` (within an action folder) are **all** considered templates, except `prompt.js` / `index.js` / `prompt.ts` / `index.ts` — those stay ordinary JS/TS files (hook files). This matches the engine's own behavior.
 - ⚠️ Note: the default pattern `*.t` claims the `.t` extension IDE-wide — if you have other `.t` files, narrow the pattern list.
 

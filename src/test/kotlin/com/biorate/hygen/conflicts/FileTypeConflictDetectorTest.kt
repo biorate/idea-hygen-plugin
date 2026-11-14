@@ -239,3 +239,152 @@ class FileTypeConflictDetectorTest {
         assertEquals(1, detector.detect(listOf("*.t", "t", " *.T ")).size)
     }
 }
+
+/**
+ * Unit tests for the real-file integration (tasks §2.1/§2.2): the [ConflictFileFinder] seam
+ * attached to [FileTypeConflictDetector] — which real files get attached to a conflict, the
+ * cap, and the "already claimed back" suppression of a pair.
+ */
+class FileTypeConflictRealFilesTest {
+
+    private val hygen = "Hygen Template"
+
+    private class FakeProbe(private val resolution: Map<String, String>) : FileTypeProbe {
+        override fun getFileTypeByFileName(fileName: String): String? = resolution[fileName]
+    }
+
+    private class FakeSuppression : ConflictSuppression {
+        val suppressed = mutableSetOf<String>()
+        override fun isSuppressed(fileTypeName: String): Boolean = fileTypeName in suppressed
+        override fun suppress(fileTypeName: String) {
+            suppressed += fileTypeName
+        }
+    }
+
+    /** Fake finder with the (our pattern × foreign pattern) → real file names mapping. */
+    private class FakeFinder(
+        private val files: Map<Pair<String, String>, List<String>>,
+        private val throwing: Boolean = false,
+    ) : ConflictFileFinder {
+        override fun find(ourPattern: String, foreignPattern: String, limit: Int): List<String> {
+            if (throwing) throw IllegalStateException("vfs gone")
+            return files[ourPattern to foreignPattern].orEmpty()
+        }
+    }
+
+    private val dotenv = ForeignFileType(".env file", listOf(".env.*"))
+
+    private fun detector(
+        resolution: Map<String, String>,
+        finder: ConflictFileFinder? = null,
+        suppression: FakeSuppression = FakeSuppression(),
+    ) = FileTypeConflictDetector(
+        probe = FakeProbe(resolution),
+        suppression = suppression,
+        foreignPatterns = ForeignPatterns { listOf(dotenv) },
+        ourFileTypeName = hygen,
+        realFiles = finder,
+    )
+
+    @Test
+    fun `real project files matching both patterns are attached to the conflict`() {
+        val detector = detector(
+            resolution = mapOf(".env.probe.t" to ".env file", ".env.t" to ".env file", "app.env.t" to ".env file"),
+            finder = FakeFinder(mapOf("*.t" to ".env.*" to listOf(".env.t", "app.env.t"))),
+        )
+
+        assertEquals(
+            listOf(FileTypeConflict("*.t", ".env file", ".env.probe.t", listOf(".env.t", "app.env.t"))),
+            detector.detect(listOf("*.t")),
+        )
+    }
+
+    @Test
+    fun `file names are attached distinct and in stable (sorted) order`() {
+        val detector = detector(
+            resolution = mapOf(".env.probe.t" to ".env file", ".env.t" to ".env file"),
+            finder = FakeFinder(mapOf("*.t" to ".env.*" to listOf("b.env.t", "a.env.t", "b.env.t"))),
+        )
+
+        assertEquals(
+            listOf("a.env.t", "b.env.t"),
+            detector.detect(listOf("*.t")).single().conflictingFileNames,
+        )
+    }
+
+    @Test
+    fun `real file names are capped at the per-pair limit`() {
+        val many = (1..ConflictFileFinder.MAX_FILES_PER_PAIR + 10).map { "f$it.env.t" }
+        val detector = detector(
+            resolution = many.associateWith { ".env file" } + (".env.probe.t" to ".env file"),
+            finder = FakeFinder(mapOf("*.t" to ".env.*" to many)),
+        )
+
+        val conflict = detector.detect(listOf("*.t")).single()
+        assertEquals(ConflictFileFinder.MAX_FILES_PER_PAIR, conflict.conflictingFileNames.size)
+    }
+
+    @Test
+    fun `a pair whose real files ALL already resolve to the hygen type is not reported`() {
+        // The real-world claim-back shape: `.env.t` was claimed back via an exact association,
+        // so it now resolves to hygen even though the foreign `.env.*` pattern still intersects.
+        val detector = detector(
+            resolution = mapOf(".env.probe.t" to ".env file", ".env.t" to hygen),
+            finder = FakeFinder(mapOf("*.t" to ".env.*" to listOf(".env.t"))),
+        )
+
+        assertTrue(detector.detect(listOf("*.t")).isEmpty())
+    }
+
+    @Test
+    fun `a pair whose real files resolve to several types is still reported`() {
+        val detector = detector(
+            resolution = mapOf(".env.probe.t" to ".env file", ".env.t" to hygen, "app.env.t" to ".env file"),
+            finder = FakeFinder(mapOf("*.t" to ".env.*" to listOf(".env.t", "app.env.t"))),
+        )
+
+        // `.env.t` already resolves to the hygen type, so only the still-foreign file is offered.
+        assertEquals(
+            listOf(FileTypeConflict("*.t", ".env file", ".env.probe.t", listOf("app.env.t"))),
+            detector.detect(listOf("*.t")),
+        )
+    }
+
+    @Test
+    fun `no real files found - the conflict is still reported, without claim-back names`() {
+        val detector = detector(
+            resolution = mapOf(".env.probe.t" to ".env file"),
+            finder = FakeFinder(emptyMap()),
+        )
+
+        assertEquals(
+            listOf(FileTypeConflict("*.t", ".env file", ".env.probe.t")),
+            detector.detect(listOf("*.t")),
+        )
+    }
+
+    @Test
+    fun `a failing real-file lookup degrades to no claim-back names, never a crash`() {
+        val detector = detector(
+            resolution = mapOf(".env.probe.t" to ".env file"),
+            finder = FakeFinder(emptyMap(), throwing = true),
+        )
+
+        assertEquals(
+            listOf(FileTypeConflict("*.t", ".env file", ".env.probe.t")),
+            detector.detect(listOf("*.t")),
+        )
+    }
+
+    @Test
+    fun `without the finder the legacy conflicts are unchanged`() {
+        val detector = detector(
+            resolution = mapOf(".env.probe.t" to ".env file"),
+        )
+
+        assertEquals(
+            listOf(FileTypeConflict("*.t", ".env file", ".env.probe.t")),
+            detector.detect(listOf("*.t")),
+        )
+    }
+}
